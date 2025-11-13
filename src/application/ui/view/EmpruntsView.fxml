@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.String?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.Spinner?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TitledPane?>
+<?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+<?import application.domain.core.personne.Adherent?>
+<?import application.domain.core.document.Document?>
+<?import application.domain.core.emprunt.Emprunt?>
+
+
+<VBox spacing="12" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.EmpruntsController">
+
+  <padding>
+    <Insets bottom="16" left="16" right="16" top="16" />
+  </padding>
+
+  <HBox alignment="CENTER_LEFT" spacing="10">
+    <Label styleClass="title" text="Gestion des emprunts" />
+    <Region HBox.hgrow="ALWAYS" />
+    
+	<HBox alignment="CENTER_LEFT" spacing="12" styleClass="segmented-toggle-bar">
+	  <ToggleButton fx:id="tgEmprunts" selected="true" text="Emprunts">
+            <styleClass><String fx:value="btn" /><String fx:value="btn-primary" /><String fx:value="mode-toggle" /></styleClass>
+      </ToggleButton>
+	  <ToggleButton fx:id="tgRetours" text="Retours">
+            <styleClass><String fx:value="btn" /><String fx:value="btn-secondary" /><String fx:value="mode-toggle" /></styleClass>
+      </ToggleButton>
+	</HBox>
+  </HBox>
+
+  <HBox alignment="CENTER_LEFT" spacing="10">
+    <CheckBox fx:id="chkActifsOnly" selected="true" text="Actifs uniquement" />
+    <CheckBox fx:id="chkOverdueOnly" selected="false" text="En retard uniquement" />
+    <Region HBox.hgrow="ALWAYS" />
+    <ProgressIndicator fx:id="progress" managed="false" visible="false" />
+    <Button fx:id="btnRefresh" styleClass="btn-secondary" text="Rafraîchir" />
+    <Button fx:id="btnReturn" styleClass="btn-primary" text="Retourner la sélection" />
+  </HBox>
+
+  <TableView fx:id="table" VBox.vgrow="ALWAYS">
+    <columnResizePolicy><TableView fx:constant="UNCONSTRAINED_RESIZE_POLICY" /></columnResizePolicy>
+    <columns>
+        <TableColumn fx:id="colId" prefWidth="100" text="ID" />
+        <TableColumn fx:id="colDocument" prefWidth="220" text="Document" />
+        <TableColumn fx:id="colEmprunteur" prefWidth="220" text="Emprunteur" />
+        <TableColumn fx:id="colDateEmprunt" prefWidth="140" text="Date emprunt" />
+        <TableColumn fx:id="colDatePrevue" prefWidth="140" text="Retour prévu" />
+        <TableColumn fx:id="colDateRetour" prefWidth="160" text="Retour effectif" />
+        <TableColumn fx:id="colStatut" prefWidth="160" text="Statut" />
+        <TableColumn fx:id="colPenaliteCourante" prefWidth="160" text="Pénalité courante" />
+    </columns>
+  </TableView>
+
+  <TitledPane fx:id="formPane" expanded="true" styleClass="card-like, collapsible" text="Nouvel emprunt / Retour">
+    <content>
+      <GridPane hgap="12" vgap="10">
+        <columnConstraints>
+          <ColumnConstraints percentWidth="25" />
+          <ColumnConstraints percentWidth="75" />
+        </columnConstraints>
+        
+        <Label fx:id="lblAdherent" text="Adhérent" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+        <ComboBox fx:id="cbAdherent" maxWidth="Infinity" promptText="Choisir un adhérent" GridPane.columnIndex="1" GridPane.rowIndex="0" /> 
+        <Label fx:id="lblDocument" text="Document" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+        <ComboBox fx:id="cbDocument" maxWidth="Infinity" promptText="Choisir un document" GridPane.columnIndex="1" GridPane.rowIndex="1" /> 
+        <Label fx:id="lblDateEmprunt" text="Date d'emprunt" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+        <DatePicker fx:id="dpEmprunt" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="2" /> 
+        <Label fx:id="lblDuree" text="Durée (jours)" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+        <Spinner fx:id="spDureeJours" editable="true" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="3" /> 
+        <Label fx:id="lblRetourPrevu" text="Retour prévu" GridPane.columnIndex="0" GridPane.rowIndex="4" />
+        <DatePicker fx:id="dpRetourPrevu" disable="true" editable="false" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="4" /> 
+        
+        <Label fx:id="lblEmpruntActif" text="Emprunt" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+        <ComboBox fx:id="cbEmpruntsActifs" maxWidth="Infinity" promptText="Choisir l'emprunt à retourner" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+        
+        <Label fx:id="lblDateRetour" text="Date de Retour" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+        <DatePicker fx:id="dpRetourEffectif" maxWidth="Infinity" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+        
+        <HBox alignment="CENTER_RIGHT" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="5">
+          <Button fx:id="btnBorrow" styleClass="btn-primary" text="Enregistrer l'emprunt" />
+          <Button fx:id="btnMarkReturn" styleClass="btn-secondary" text="Enregistrer le retour" />
+        </HBox>
+        
+        <rowConstraints>
+           <RowConstraints />
+           <RowConstraints />
+           <RowConstraints />
+           <RowConstraints />
+           <RowConstraints />
+           <RowConstraints />
+        </rowConstraints>
+      </GridPane>
+    </content>
+  </TitledPane>
+
+  <Label fx:id="errorLabel" managed="false" styleClass="error-message" visible="false" wrapText="true" />
+  <Label fx:id="successLabel" managed="false" styleClass="success-message" visible="false" wrapText="true" />
+  
+</VBox>
