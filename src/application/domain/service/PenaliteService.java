@@ -2,6 +2,8 @@ package application.domain.service;
 
 import application.domain.core.emprunt.Penalite;
 
+import java.util.List;
+
 /**
  * Interface (Port) pour le service de gestion des pénalités.
  */
@@ -16,11 +18,20 @@ public interface PenaliteService {
     Penalite reglerPenalite(long penaliteId);
 
     /**
-     * NOUVEAU : Marque toutes les pénalités actives d'un adhérent comme payées.
+     * Marque toutes les pénalités actives d'un adhérent comme payées.
      * @param adherentId L'ID de l'adhérent.
      * @return Le nombre de pénalités réglées.
      */
     int reglerToutesPenalites(long adherentId);
-    
 
+    /**
+     * L’adhérent signale qu’il souhaite régler la pénalité
+     * (workflow : passage en "demande de paiement" ou équivalent).
+     */
+    void demanderPaiement(long penaliteId);
+
+    /**
+     * Retourne les pénalités (par ex. actives) pour un adhérent donné.
+     */
+    List<Penalite> getPenalitesPourAdherent(long adherentId);
 }

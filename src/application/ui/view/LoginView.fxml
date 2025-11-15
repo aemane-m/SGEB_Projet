@@ -10,45 +10,62 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox alignment="CENTER" maxWidth="420" prefWidth="420" spacing="14" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.LoginController">
+<VBox alignment="CENTER"
+      maxWidth="420"
+      prefWidth="420"
+      spacing="14"
+      stylesheets="@../css/style.css"
+      xmlns="http://javafx.com/javafx/23.0.1"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="application.ui.viewmodel.controller.LoginController">
 
-    <padding><Insets bottom="20" left="20" right="20" top="20" /></padding>
+    <padding>
+        <Insets bottom="20" left="20" right="20" top="20" />
+    </padding>
 
-    <Label styleClass="title" text="Connexion Administrateur" /> 
+    <Label styleClass="title" text="Connexion à la bibliothèque" />
 
     <VBox fx:id="loginPane" alignment="CENTER" maxWidth="340" spacing="10">
-        <TextField fx:id="usernameField" maxWidth="Infinity" promptText="Email (admin)" />
-        <PasswordField fx:id="passwordField" maxWidth="Infinity" promptText="Mot de passe" />
+
+        <TextField fx:id="usernameField"
+                   maxWidth="Infinity"
+                   promptText="Email" />
+
+        <PasswordField fx:id="passwordField"
+                       maxWidth="Infinity"
+                       promptText="Mot de passe" />
 
         <HBox alignment="CENTER_RIGHT" spacing="10">
-            <ProgressIndicator fx:id="progress" managed="false" prefHeight="18" prefWidth="18" visible="false" />
+            <ProgressIndicator fx:id="progress"
+                               managed="false"
+                               prefHeight="18"
+                               prefWidth="18"
+                               visible="false" />
             <Region HBox.hgrow="ALWAYS" />
-            <Button fx:id="btnLogin" maxWidth="Infinity" text="Se connecter" styleClass="btn, btn-primary" HBox.hgrow="ALWAYS" />
+            <Button fx:id="btnLogin"
+                    maxWidth="Infinity"
+                    text="Se connecter"
+                    styleClass="btn, btn-primary"
+                    HBox.hgrow="ALWAYS" />
         </HBox>
 
-        <Label fx:id="errorLabel" managed="false" styleClass="error-message" visible="false" wrapText="true" />
-        <Button fx:id="btnShowCreate" text="Créer un nouveau compte admin" styleClass="btn-link" />
-    </VBox>
+        <Label fx:id="errorLabel"
+               managed="false"
+               styleClass="error-message"
+               visible="false"
+               wrapText="true" />
 
-    <VBox fx:id="createPane" managed="false" maxWidth="360" spacing="10" styleClass="form-card" visible="false">
-        <padding><Insets bottom="10" left="10" right="10" top="10" /></padding>
+        <Label wrapText="true"
+               styleClass="helper-text"
+               text="Vous n’avez pas encore de compte adhérent ? Retournez à l’écran d’accueil et utilisez le bouton « Créer un compte »." />
 
-        <Label styleClass="form-title" text="Créer un compte Admin" />
+        <!-- 🔙 Bouton retour Landing -->
+        <Button fx:id="btnBackToLanding"
+                text="Retour à l’écran d’accueil"
+                styleClass="btn-link"
+                maxWidth="Infinity"
+                onAction="#onBackToLandingClicked" />
 
-        <TextField fx:id="createUsernameField" promptText="Email" />
-        <PasswordField fx:id="createPasswordField" promptText="Mot de passe (min. 6 caractères)" />
-
-        <TextField fx:id="createPrenomField" promptText="Prénom" />
-        <TextField fx:id="createNomField" promptText="Nom" />
-
-        <HBox alignment="CENTER_RIGHT" spacing="10">
-            <Button fx:id="btnCancelCreate" text="Annuler" styleClass="btn, btn-secondary" />
-            <Region HBox.hgrow="ALWAYS" />
-            <Button fx:id="btnCreate" text="Créer le compte" styleClass="btn, btn-primary" />
-        </HBox>
-
-        <Label fx:id="createInfoLabel" managed="false" styleClass="info-message" visible="false" wrapText="true" />
-        <Label fx:id="createErrorLabel" managed="false" styleClass="error-message" visible="false" wrapText="true" />
     </VBox>
 
 </VBox>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane fx:id="root"
+            xmlns="http://javafx.com/javafx/23.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="application.ui.viewmodel.controller.LandingController">
+
+    <center>
+        <HBox spacing="24" BorderPane.alignment="CENTER">
+            <padding>
+                <Insets top="24" right="24" bottom="24" left="24"/>
+            </padding>
+            <children>
+
+                <!-- Bloc gauche : présentation du projet / énoncé -->
+                <VBox spacing="16" HBox.hgrow="ALWAYS">
+                    <Label text="SGEB — Système de Gestion des Emprunts de Bibliothèque"
+                           style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+
+                    <TextArea fx:id="lblDetails"
+                              editable="false"
+                              wrapText="true"
+                              prefRowCount="10"
+                              style="-fx-font-family: 'Monospaced';"/>
+                </VBox>
+
+                <!-- Bloc droit : actions -->
+                <VBox spacing="12" alignment="CENTER_RIGHT">
+                    <Button fx:id="btnLogin"
+                            text="Se connecter"
+                            onAction="#onLoginClicked"
+                            maxWidth="Infinity"/>
+
+                    <Button fx:id="btnRegister"
+                            text="Créer un compte adhérent"
+                            onAction="#onRegisterClicked"
+                            maxWidth="Infinity"/>
+
+                    <Button fx:id="btnGuestCatalogue"
+                            text="Consulter le catalogue"
+                            onAction="#onGuestCatalogueClicked"
+                            maxWidth="Infinity"/>
+                </VBox>
+
+            </children>
+        </HBox>
+    </center>
+</BorderPane>

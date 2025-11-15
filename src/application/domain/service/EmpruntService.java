@@ -1,7 +1,7 @@
 package application.domain.service;
 
 import application.domain.core.emprunt.Emprunt;
-import application.domain.core.emprunt.Penalite; // Corrigé (Money n'est pas l'objet retourné)
+import application.domain.core.emprunt.Penalite;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -30,19 +30,27 @@ public interface EmpruntService {
 
     /** Récupère tous les emprunts (actifs et passés). */
     List<Emprunt> findAll();
-    
+
     /** Récupère uniquement les emprunts en cours. */
     List<Emprunt> findActive();
-    
+
     /** Récupère les emprunts en retard (actifs, date retour dépassée). */
     List<Emprunt> findLate(LocalDate dateActuelle);
-    
+
     /**
      * Vérifie si un document est actuellement emprunté.
-     * @param documentId L'ID (Long) du document.
+     * @param documentId L'ID du document.
      * @return true si emprunté, false sinon.
      */
-    boolean isDocumentEmprunte(Long documentId); // <-- Utilise Long
+    boolean isDocumentEmprunte(Long documentId);
+
+    /**
+     * Récupère tous les emprunts (actifs + historiques) pour un adhérent.
+     */
+    List<Emprunt> findByAdherentId(long adherentId);
+
+    /**
+     * Récupère uniquement les emprunts actifs pour un adhérent.
+     */
+    List<Emprunt> findActiveByAdherentId(long adherentId);
 }
-
-

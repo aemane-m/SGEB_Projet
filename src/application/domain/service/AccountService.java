@@ -1,48 +1,143 @@
 package application.domain.service;
 
+import application.domain.core.security.Role;
+import application.domain.core.security.Capability;
+
+import java.util.Set;
+
 /**
- * Service de gestion des comptes (création, authentification, navigation UI).
- * Couche Domaine — Gère uniquement les comptes Administrateurs.
+ * Service domaine pour la gestion des comptes (Admin + Adhérent).
+ * Ne dépend d’aucune technologie (JavaFX, SQLite, UI).
+ *
+ * Le domaine fournit :
+ * - création de comptes (setup, admin, adhérent)
+ * - login authentifié
+ * - informations de session (role + capabilities)
+ * - état du compte : ACTIVE, PENDING, SUSPENDED
+ * - flag passwordMustChange
  */
 public interface AccountService {
 
-    /** @return nombre total d'utilisateurs (admins) persistés. */
+    // =============================
+    // ====== Création comptes =====
+    // =============================
+
+    /** Création du tout premier Administrateur. Utilisé par le Setup Wizard. */
+    void createFirstAdmin(String email, String rawPassword, String nom, String prenom);
+
+    /** Création d’un administrateur par un admin existant. */
+    void createAdmin(String email, String rawPassword, String nom, String prenom);
+
+    /** Création d’un adhérent par inscription publique. */
+    void createAdherentPublic(String email, String rawPassword, String nom, String prenom);
+
+    /** Retourne le nombre total de comptes en base. */
     long countUsers();
 
-    /** * Crée un compte administrateur.
-     * CORRIGÉ : Ajout de nom et prenom pour correspondre aux contraintes de la DB.
-     */
-    void createAdmin(String username, String rawPassword, String nom, String prenom);
+    // =============================
+    // ========== Login ============
+    // =============================
 
     /**
-     * Tente d'authentifier un utilisateur (admin).
-     * @return un {@link LoginResult} indiquant succès/échec, message éventuel et identifiant.
+     * Authentifie un utilisateur (admin ou adhérent).
+     *
+     * @return LoginResult contenant :
+     *         - succès/échec
+     *         - message éventuel
+     *         - UserSession si succès
      */
-    LoginResult login(String username, String rawPassword);
+    LoginResult login(String email, String rawPassword);
+
+    // =============================
+    // ====== Mot de passe =========
+    // =============================
 
     /**
-     * Point d'extension pour déclencher la navigation UI après un login réussi.
-     * (Implémentation côté adapter/UI, le domaine se contente de l’annoncer.)
+     * Change le mot de passe de l'utilisateur et met le flag
+     * "passwordMustChange" à false (utilisé après login avec mot de passe
+     * temporaire).
      */
-    void navigateToMainAfterLogin(LoginResult result);
+    void changePasswordAndClearFlag(long userId, String rawPassword);
+
+    // =============================
+    // ===== Structures retour =====
+    // =============================
+
+    /**
+     * Session utilisateur.
+     *
+     * @param userId             id technique du compte
+     * @param email              email de connexion
+     * @param role               rôle principal (ADMIN / ADHERENT / …)
+     * @param capabilities       droits détaillés
+     * @param passwordMustChange le mot de passe doit-il être changé à la prochaine connexion ?
+     * @param adherentId         id de l'adhérent si le compte est lié à un adhérent, sinon null
+     */
+    record UserSession(
+            long userId,
+            String email,
+            Role role,
+            Set<Capability> capabilities,
+            boolean passwordMustChange,
+            Long adherentId
+    ) { }
 
     /**
      * Résultat d'authentification.
-     * - success : indicateur de succès
-     * - message : message d'erreur (échec) ou null (succès)
-     * - username : identifiant de l'administrateur connecté (succès) sinon null
+     * success=true => session non nulle.
+     * success=false => session=null + message d'erreur.
      */
-    record LoginResult(boolean success, String message, String username) {
+    record LoginResult(boolean success, String message, UserSession session) {
 
-        /** Fabrique un résultat d'échec avec message explicite (jamais null). */
+        /** Échec avec message. */
         public static LoginResult failure(String message) {
-            String msg = (message == null || message.isBlank()) ? "Authentification échouée." : message;
+            String msg = (message == null || message.isBlank())
+                    ? "Authentification échouée."
+                    : message;
             return new LoginResult(false, msg, null);
         }
 
-        /** Fabrique un résultat de succès pour l'administrateur. */
-        public static LoginResult success(String username) {
-            return new LoginResult(true, null, username);
+        /** Succès avec session valide. */
+        public static LoginResult success(UserSession session) {
+            return new LoginResult(true, null, session);
         }
+    }
+
+    // =====================================================================
+    // ========= Méthode de confort pour le Setup Wizard ===================
+    // =====================================================================
+
+    /**
+     * Surcharge pratique pour le Setup Wizard qui ne demande qu'un "nom complet".
+     * On découpe en (prenom, nom) de façon simple :
+     * - tout sauf le dernier mot = prénom
+     * - dernier mot = nom
+     */
+    default void createFirstAdmin(String fullName, String email, String rawPassword) {
+        if (fullName == null) {
+            fullName = "";
+        }
+        fullName = fullName.trim();
+
+        if (fullName.isEmpty()) {
+            // fallback : on considère tout comme nom
+            createFirstAdmin(email, rawPassword, fullName, "");
+            return;
+        }
+
+        int idx = fullName.lastIndexOf(' ');
+        String nom;
+        String prenom;
+
+        if (idx > 0) {
+            prenom = fullName.substring(0, idx).trim();
+            nom = fullName.substring(idx + 1).trim();
+        } else {
+            // un seul mot => nom uniquement
+            prenom = "";
+            nom = fullName;
+        }
+
+        createFirstAdmin(email, rawPassword, nom, prenom);
     }
 }

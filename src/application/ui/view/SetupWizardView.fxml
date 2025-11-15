@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="application.ui.viewmodel.controller.SetupWizardController">
+
+    <center>
+        <VBox spacing="12" alignment="CENTER" BorderPane.alignment="CENTER">
+            <padding>
+                <Insets top="20" right="20" bottom="20" left="20"/>
+            </padding>
+
+            <children>
+                <Label text="Configuration initiale de SGEB"
+                       style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+
+                <Label text="Créez le premier compte administrateur."/>
+
+                <GridPane hgap="10" vgap="8">
+                    <padding>
+                        <Insets top="10" right="10" bottom="10" left="10"/>
+                    </padding>
+
+                    <columnConstraints>
+                        <ColumnConstraints minWidth="120" halignment="RIGHT"/>
+                        <ColumnConstraints halignment="LEFT" hgrow="ALWAYS"/>
+                    </columnConstraints>
+
+                    <children>
+                        <Label text="Nom :" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                        <TextField fx:id="tfNom" promptText="Nom"
+                                   GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+
+                        <Label text="Prénom :" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                        <TextField fx:id="tfPrenom" promptText="Prénom"
+                                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+
+                        <Label text="Email :" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
+                        <TextField fx:id="tfEmail" promptText="email@exemple.com"
+                                   GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+
+                        <Label text="Mot de passe :" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
+                        <PasswordField fx:id="pfPassword" promptText="Mot de passe"
+                                       GridPane.rowIndex="3" GridPane.columnIndex="1"/>
+
+                        <Label text="Confirmer :" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
+                        <PasswordField fx:id="pfConfirm" promptText="Confirmation"
+                                       GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                    </children>
+                </GridPane>
+
+                <Label fx:id="lblError" textFill="red" wrapText="true"/>
+
+                <HBox spacing="10">
+                    <children>
+                        <Button text="Créer le compte administrateur"
+                                defaultButton="true"
+                                onAction="#onCreateAdmin"/>
+                    </children>
+                </HBox>
+            </children>
+        </VBox>
+    </center>
+</BorderPane>

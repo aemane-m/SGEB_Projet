@@ -1,45 +1,50 @@
 package application.infrastructure.sqlite;
 
-// Imports Java
-import java.math.BigDecimal;
-import java.sql.*;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-// Imports Domaine
 import application.domain.core.emprunt.Money;
 import application.domain.core.emprunt.Penalite;
 import application.domain.ports.repository.PenaliteRepository;
 
+import java.math.BigDecimal;
+import java.sql.*;
+import java.time.LocalDate;
+import java.util.*;
+
 /**
  * Implémentation SQLite de {@link PenaliteRepository}.
  *
- * CORRIGÉ :
- * - Utilise la colonne 'adherent_id' directement (confirmée par DatabaseInitializer).
- * - Supprime les JOINs inutiles dans 'findActivesByAdherentId' et 'findActivePenaltyCountsMap'.
- * - Implémente l'interface 'Repository<Penalite, Long>' complète.
- * - Nettoyage des méthodes de mapping dupliquées.
+ * Schéma SQL (cf. DatabaseInitializer) :
+ *   PENALITE(
+ *      penalite_id INTEGER PK AUTOINCREMENT,
+ *      adherent_id INTEGER NOT NULL,
+ *      emprunt_id  INTEGER NOT NULL,
+ *      type        TEXT,
+ *      montant     REAL NOT NULL,
+ *      date_debut  TEXT,
+ *      date_fin    TEXT,
+ *      description TEXT,
+ *      status      TEXT NOT NULL DEFAULT 'ACTIVE'
+ *   )
+ *
+ * Remarque : le statut métier (DUE / PAID / CANCELLED / PAYMENT_REQUESTED)
+ * n'est pas lu/écrit en base via la colonne status, mais déduit dans le domaine
+ * à partir de dateGeneration / datePaiement. La colonne status peut rester
+ * pour compat ou pour usage futur.
  */
 public class SqlitePenaliteRepository implements PenaliteRepository {
 
     private static final String DEFAULT_TYPE = "RETARD";
 
     public SqlitePenaliteRepository() {
-        // Constructeur
+        // Constructeur par défaut
     }
 
     // ==========================================
-    // ========== CRUD (Interface Repository) ====
+    // ========== CRUD (Interface Repository) ===
     // ==========================================
 
     @Override
     public Penalite save(Penalite p) {
-        if (p == null) throw new NullPointerException("La pénalité ne peut être nulle.");
-        // Valide la logique métier (ex: montant positif)
+        Objects.requireNonNull(p, "La pénalité ne peut être nulle.");
         if (p.getMontant() == null || !p.getMontant().isPositive()) {
             throw new IllegalArgumentException("Le montant de la pénalité doit être positif.");
         }
@@ -48,15 +53,23 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
 
     @Override
     public Optional<Penalite> findById(Long id) {
+        if (id == null || id <= 0) {
+            return Optional.empty();
+        }
         final String sql = "SELECT * FROM PENALITE WHERE penalite_id = ?";
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
+
             ps.setLong(1, id);
+
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.ofNullable(mapRowToPenalite(rs)) : Optional.empty();
+                return rs.next()
+                        ? Optional.ofNullable(mapRowToPenalite(rs))
+                        : Optional.empty();
             }
         } catch (SQLException e) {
-            throw new RuntimeException("PENALITE.findById", e);
+            throw new RuntimeException("PENALITE.findById failed", e);
         }
     }
 
@@ -64,132 +77,196 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
     public List<Penalite> findAll() {
         final String sql = "SELECT * FROM PENALITE";
         List<Penalite> results = new ArrayList<>();
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
+
             while (rs.next()) {
                 Penalite p = mapRowToPenalite(rs);
-                if (p != null) results.add(p);
+                if (p != null) {
+                    results.add(p);
+                }
             }
         } catch (SQLException e) {
-            throw new RuntimeException("PENALITE.findAll", e);
+            throw new RuntimeException("PENALITE.findAll failed", e);
         }
         return results;
     }
 
     @Override
     public void delete(Long id) {
-        final String sql = "DELETE FROM PENALITE WHERE penalite_id=?";
+        if (id == null || id <= 0) {
+            return;
+        }
+        final String sql = "DELETE FROM PENALITE WHERE penalite_id = ?";
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
+
             ps.setLong(1, id);
             ps.executeUpdate();
         } catch (SQLException e) {
-            throw new RuntimeException("PENALITE.delete", e);
+            throw new RuntimeException("PENALITE.delete failed", e);
         }
     }
 
     @Override
     public long count() {
         final String sql = "SELECT COUNT(*) FROM PENALITE";
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
+
             return rs.next() ? rs.getLong(1) : 0L;
         } catch (SQLException e) {
-            throw new RuntimeException("PENALITE.count", e);
+            throw new RuntimeException("PENALITE.count failed", e);
         }
+    }
+    @Override
+    public List<Penalite> findByAdherentId(long adherentId) {
+        if (adherentId <= 0) {
+            return List.of();
+        }
+
+        final String sql = "SELECT * FROM PENALITE WHERE adherent_id = ?";
+
+        List<Penalite> results = new ArrayList<>();
+
+        try (Connection c = SqliteDataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            ps.setLong(1, adherentId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Penalite p = mapRowToPenalite(rs);
+                    if (p != null) {
+                        results.add(p);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("PENALITE.findByAdherentId failed", e);
+        }
+
+        return results;
     }
 
     // ==========================================
-    // ========== Requêtes Spécifiques ==========
+    // ========== Requêtes spécifiques ==========
     // ==========================================
 
     /**
      * {@inheritDoc}
-     * CORRIGÉ : N'utilise plus de JOIN, la table PENALITE a l'adherent_id.
+     * Active = non payée en base, i.e. date_fin IS NULL.
      */
     @Override
     public List<Penalite> findActivesByAdherentId(Long adherentId) {
+        if (adherentId == null || adherentId <= 0) {
+            return List.of();
+        }
         final String sql = "SELECT * FROM PENALITE WHERE adherent_id = ? AND date_fin IS NULL";
+
         List<Penalite> results = new ArrayList<>();
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
-            
+
             ps.setLong(1, adherentId);
+
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    results.add(mapRowToPenalite(rs));
+                    Penalite p = mapRowToPenalite(rs);
+                    if (p != null) {
+                        results.add(p);
+                    }
                 }
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Penalite.findActivesByAdherentId failed", e);
+            throw new RuntimeException("PENALITE.findActivesByAdherentId failed", e);
         }
         return results;
     }
 
     /**
-     * NOUVEAU : Méthode pour récupérer toutes les pénalités actives
-     * (requise par PenalitesViewModel).
+     * Utilitaire interne : retourne toutes les pénalités actives (date_fin IS NULL).
      */
     public List<Penalite> findAllActives() {
         final String sql = "SELECT * FROM PENALITE WHERE date_fin IS NULL";
         List<Penalite> results = new ArrayList<>();
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
+
             while (rs.next()) {
                 Penalite p = mapRowToPenalite(rs);
-                if (p != null) results.add(p);
+                if (p != null) {
+                    results.add(p);
+                }
             }
         } catch (SQLException e) {
-            throw new RuntimeException("PENALITE.findAllActives", e);
+            throw new RuntimeException("PENALITE.findAllActives failed", e);
         }
         return results;
     }
 
     /**
      * {@inheritDoc}
-     * CORRIGÉ : N'utilise plus de JOIN, la table PENALITE a l'adherent_id.
+     * Carte {adherent_id -> nb de pénalités actives (date_fin IS NULL)}.
      */
     @Override
     public Map<Long, Integer> findActivePenaltyCountsMap() {
         final String sql = """
-            SELECT adherent_id, COUNT(penalite_id) as count
-            FROM PENALITE
-            WHERE date_fin IS NULL
-            GROUP BY adherent_id
+            SELECT adherent_id, COUNT(penalite_id) AS count
+              FROM PENALITE
+             WHERE date_fin IS NULL
+             GROUP BY adherent_id
             """;
+
         Map<Long, Integer> counts = new HashMap<>();
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
-            
+
             while (rs.next()) {
-                counts.put(rs.getLong("adherent_id"), rs.getInt("count"));
+                long adherentId = rs.getLong("adherent_id");
+                int count = rs.getInt("count");
+                counts.put(adherentId, count);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Penalite.findActivePenaltyCountsMap failed", e);
+            throw new RuntimeException("PENALITE.findActivePenaltyCountsMap failed", e);
         }
         return counts;
     }
-    
+
     /**
-     * NOUVEAU : Implémentation de la requête UPDATE pour tout régler.
+     * {@inheritDoc}
+     * Marque toutes les pénalités actives d'un adhérent comme payées
+     * (date_fin = datePaiement).
      */
     @Override
     public int reglerToutesPourAdherent(long adherentId, LocalDate datePaiement) {
-        final String sql = "UPDATE PENALITE SET date_fin = ? WHERE adherent_id = ? AND date_fin IS NULL";
+        Objects.requireNonNull(datePaiement, "datePaiement");
+        final String sql = """
+            UPDATE PENALITE
+               SET date_fin = ?
+             WHERE adherent_id = ?
+               AND date_fin IS NULL
+            """;
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
-            
+
             ps.setString(1, datePaiement.toString());
             ps.setLong(2, adherentId);
-            
-            return ps.executeUpdate(); // Retourne le nombre de lignes modifiées
-            
+
+            return ps.executeUpdate(); // Nombre de lignes modifiées
         } catch (SQLException e) {
-            throw new RuntimeException("Penalite.reglerToutesPourAdherent failed", e);
+            throw new RuntimeException("PENALITE.reglerToutesPourAdherent failed", e);
         }
     }
 
@@ -198,31 +275,50 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
     // =============================
 
     private Penalite insert(Penalite p) {
-        // Le schéma (DatabaseInitializer) confirme ces colonnes
+        // Schéma : adherent_id, emprunt_id, type, montant, date_debut, date_fin, description
         final String sql = """
-            INSERT INTO PENALITE(adherent_id, emprunt_id, type, montant, date_debut, date_fin, description)
-            VALUES(?,?,?,?,?,?,?)
+            INSERT INTO PENALITE(
+                adherent_id,
+                emprunt_id,
+                type,
+                montant,
+                date_debut,
+                date_fin,
+                description
+            ) VALUES (?,?,?,?,?,?,?)
             """;
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             bind(ps, p);
             ps.executeUpdate();
+
             try (ResultSet k = ps.getGeneratedKeys()) {
-                if (k.next()) p.setId(k.getLong(1));
+                if (k.next()) {
+                    p.setId(k.getLong(1));
+                }
             }
             return p;
+
         } catch (SQLException ex) {
-            throw new RuntimeException("PENALITE.insert", ex);
+            throw new RuntimeException("PENALITE.insert failed", ex);
         }
     }
 
     private Penalite update(Penalite p) {
         final String sql = """
             UPDATE PENALITE
-               SET adherent_id=?, emprunt_id=?, type=?, montant=?, date_debut=?, date_fin=?, description=?
-             WHERE penalite_id=?
+               SET adherent_id = ?,
+                   emprunt_id  = ?,
+                   type        = ?,
+                   montant     = ?,
+                   date_debut  = ?,
+                   date_fin    = ?,
+                   description = ?
+             WHERE penalite_id = ?
             """;
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
 
@@ -231,65 +327,108 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
             ps.executeUpdate();
             return p;
         } catch (SQLException ex) {
-            throw new RuntimeException("PENALITE.update", ex);
+            throw new RuntimeException("PENALITE.update failed", ex);
         }
     }
 
-    /** Remplit un PreparedStatement avec les champs d'une Pénalité. */
+    /**
+     * Remplit un PreparedStatement avec les champs d'une Pénalité.
+     * @return l'indice suivant à utiliser dans le PreparedStatement.
+     */
     private int bind(PreparedStatement ps, Penalite p) throws SQLException {
         int i = 1;
+
+        if (p.getAdherentId() == null) {
+            throw new SQLException("adherentId null dans Penalite.bind");
+        }
+        if (p.getEmpruntId() == null) {
+            throw new SQLException("empruntId null dans Penalite.bind");
+        }
+
         ps.setLong(i++, p.getAdherentId());
         ps.setLong(i++, p.getEmpruntId());
         ps.setString(i++, DEFAULT_TYPE);
-        ps.setBigDecimal(i++, p.getMontant().amount());
-        ps.setString(i++, p.getDateGeneration() != null ? p.getDateGeneration().toString() : null); // date_debut
-        ps.setString(i++, p.getDatePaiement() != null ? p.getDatePaiement().toString() : null);   // date_fin
-        ps.setString(i++, null); // description
+
+        // Montant
+        BigDecimal amount = p.getMontant().amount();
+        ps.setBigDecimal(i++, amount);
+
+        // date_debut (dateGeneration)
+        LocalDate dateGeneration = p.getDateGeneration();
+        if (dateGeneration != null) {
+            ps.setString(i++, dateGeneration.toString());
+        } else {
+            ps.setNull(i++, Types.VARCHAR);
+        }
+
+        // date_fin (datePaiement)
+        LocalDate datePaiement = p.getDatePaiement();
+        if (datePaiement != null) {
+            ps.setString(i++, datePaiement.toString());
+        } else {
+            ps.setNull(i++, Types.VARCHAR);
+        }
+
+        // description (null par défaut pour l'instant)
+        ps.setString(i++, null);
+
         return i;
     }
 
     // =============================
     // ========== Mapping ==========
     // =============================
-    
+
     /**
-     * Mappeur unique et correct.
      * Reconstruit une {@link Penalite} depuis une ligne SQL.
+     * Utilise le constructeur de persistance :
+     * (id, empruntId, adherentId, Money, dateGeneration, datePaiement)
      */
     private Penalite mapRowToPenalite(ResultSet rs) throws SQLException {
         Long id = rs.getLong("penalite_id");
-        Long empruntId = rs.getLong("emprunt_id");
-        Long adherentId = rs.getLong("adherent_id"); // Confirmé par DatabaseInitializer
-        
-        BigDecimal bd = rs.getBigDecimal("montant");
-        double montantDouble = (bd != null ? bd : BigDecimal.ZERO).doubleValue();
+        if (rs.wasNull()) {
+            id = null;
+        }
 
-        if (montantDouble <= 0) {
+        Long empruntId = rs.getLong("emprunt_id");
+        boolean empruntIdWasNull = rs.wasNull();
+
+        Long adherentId = rs.getLong("adherent_id");
+        boolean adherentIdWasNull = rs.wasNull();
+
+        if (empruntIdWasNull || adherentIdWasNull) {
+            System.err.println("Pénalité orpheline ignorée (emprunt/adherent manquant), ID=" + id);
+            return null;
+        }
+
+        BigDecimal montantBd = rs.getBigDecimal("montant");
+        if (montantBd == null || montantBd.compareTo(BigDecimal.ZERO) <= 0) {
             System.err.println("Pénalité invalide (montant <= 0) ignorée : ID=" + id);
-            return null; // Ignore la donnée corrompue
+            return null;
         }
 
         LocalDate dateGeneration = parseLocalDate(rs.getString("date_debut"));
-        LocalDate datePaiement = parseLocalDate(rs.getString("date_fin"));
-        
+        LocalDate datePaiement   = parseLocalDate(rs.getString("date_fin"));
+
         if (dateGeneration == null) {
-             System.err.println("Pénalité invalide (date_debut nulle) ignorée : ID=" + id);
-            return null; // Donnée corrompue
+            System.err.println("Pénalité invalide (date_debut nulle) ignorée : ID=" + id);
+            return null;
         }
 
-        // Utilise le constructeur de persistance de l'entité Penalite
+        // Le statut métier (DUE / PAID) sera déduit à partir de datePaiement
         return new Penalite(
-            id,
-            empruntId,
-            adherentId,
-            Money.euros(montantDouble),
-            dateGeneration,
-            datePaiement
+                id,
+                empruntId,
+                adherentId,
+                Money.euros(montantBd),
+                dateGeneration,
+                datePaiement
         );
     }
-    
+
     private static LocalDate parseLocalDate(String dateString) {
-        return (dateString == null || dateString.isBlank()) ? null : LocalDate.parse(dateString);
+        return (dateString == null || dateString.isBlank())
+                ? null
+                : LocalDate.parse(dateString);
     }
 }
-

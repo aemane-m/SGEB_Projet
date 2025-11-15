@@ -2,6 +2,7 @@ package application.domain.core.emprunt;
 
 import application.domain.core.document.Document;
 import application.domain.core.personne.Adherent;
+
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
@@ -11,8 +12,6 @@ import java.util.Optional;
  * Entité domaine Emprunt.
  * - Calcule la pénalité courante (Money)
  * - Peut générer une Penalite persistable si retard confirmé
- *
- * CORRIGÉ : Implémentation des méthodes 'creer' et 'enregistrerRetour'.
  */
 public final class Emprunt {
 
@@ -34,14 +33,50 @@ public final class Emprunt {
 
     // ---------- Factories ----------
     public static Emprunt creer(Document doc, Adherent adherent, LocalDate dateEmprunt) {
-        Objects.requireNonNull(doc); Objects.requireNonNull(adherent); Objects.requireNonNull(dateEmprunt);
-        return new Emprunt(null, doc, adherent, dateEmprunt, dateEmprunt.plusDays(DUREE_JOURS_DEFAUT), null, null);
+        Objects.requireNonNull(doc);
+        Objects.requireNonNull(adherent);
+        Objects.requireNonNull(dateEmprunt);
+        return new Emprunt(
+                null,
+                doc,
+                adherent,
+                dateEmprunt,
+                dateEmprunt.plusDays(DUREE_JOURS_DEFAUT),
+                null,
+                null
+        );
     }
 
     public static Emprunt creer(Document doc, Adherent adherent, LocalDate dateEmprunt, int dureeJours) {
-        Objects.requireNonNull(doc); Objects.requireNonNull(adherent); Objects.requireNonNull(dateEmprunt);
-        if (dureeJours < 1) throw new IllegalArgumentException("La durée doit être >= 1 jour");
-        return new Emprunt(null, doc, adherent, dateEmprunt, dateEmprunt.plusDays(dureeJours), null, null);
+        Objects.requireNonNull(doc);
+        Objects.requireNonNull(adherent);
+        Objects.requireNonNull(dateEmprunt);
+        if (dureeJours < 1) {
+            throw new IllegalArgumentException("La durée doit être >= 1 jour");
+        }
+        return new Emprunt(
+                null,
+                doc,
+                adherent,
+                dateEmprunt,
+                dateEmprunt.plusDays(dureeJours),
+                null,
+                null
+        );
+    }
+
+    /**
+     * Factory utilisée par le service quand la date de retour prévue est déjà connue.
+     */
+    public static Emprunt creer(Document document,
+                                Adherent adherent,
+                                LocalDate dateEmprunt,
+                                LocalDate dateRetourPrevue) {
+        Objects.requireNonNull(document, "document");
+        Objects.requireNonNull(adherent, "adherent");
+        Objects.requireNonNull(dateEmprunt, "dateEmprunt");
+        Objects.requireNonNull(dateRetourPrevue, "dateRetourPrevue");
+        return new Emprunt(null, document, adherent, dateEmprunt, dateRetourPrevue, null, null);
     }
 
     // ---------- Constructeur ----------
@@ -57,12 +92,14 @@ public final class Emprunt {
         this.emprunteur = Objects.requireNonNull(emprunteur, "emprunteur");
         this.dateEmprunt = Objects.requireNonNull(dateEmprunt, "dateEmprunt");
         this.dateRetourPrevue = Objects.requireNonNull(dateRetourPrevue, "dateRetourPrevue");
+
         if (dateRetourPrevue.isBefore(dateEmprunt)) {
             throw new IllegalArgumentException("dateRetourPrevue doit être >= dateEmprunt");
         }
         if (dateRetourEffective != null && dateRetourEffective.isBefore(dateEmprunt)) {
             throw new IllegalArgumentException("dateRetourEffective ne peut pas être avant dateEmprunt");
         }
+
         this.dateRetourEffective = dateRetourEffective;
         this.penalite = penalite; // peut être null (non générée)
     }
@@ -73,13 +110,13 @@ public final class Emprunt {
     }
 
     public boolean estEnRetard(LocalDate asOf) {
-        Objects.requireNonNull(asOf);
+        Objects.requireNonNull(asOf, "asOf");
         LocalDate reference = estEnCours() ? asOf : dateRetourEffective;
         return reference.isAfter(dateRetourPrevue);
     }
 
     public long joursDeRetard(LocalDate asOf) {
-        Objects.requireNonNull(asOf);
+        Objects.requireNonNull(asOf, "asOf");
         LocalDate reference = estEnCours() ? asOf : dateRetourEffective;
         long diff = ChronoUnit.DAYS.between(dateRetourPrevue, reference);
         return Math.max(0L, diff);
@@ -118,11 +155,27 @@ public final class Emprunt {
         this.dateRetourEffective = dateRetour;
     }
 
-    public Statut statut(LocalDate asOf) {
+    /**
+     * Méthode utilisée par le service pour enregistrer un retour.
+     * Délègue à la logique de 'cloturerRetour'.
+     */
+    public void enregistrerRetour(LocalDate dateRetour) {
+        cloturerRetour(dateRetour);
+    }
+
+    /**
+     * Statut métier calculé à la date 'asOf'.
+     */
+    public EmpruntStatus statut(LocalDate asOf) {
+        Objects.requireNonNull(asOf, "asOf");
         if (!estEnCours()) {
-            return dateRetourEffective.isAfter(dateRetourPrevue) ? Statut.RETOURNE_EN_RETARD : Statut.RENDU;
+            // Rendu
+            return dateRetourEffective.isAfter(dateRetourPrevue)
+                    ? EmpruntStatus.RETOURNE_EN_RETARD
+                    : EmpruntStatus.RENDU;
         }
-        return estEnRetard(asOf) ? Statut.EN_RETARD : Statut.EN_COURS;
+        // Toujours en cours
+        return estEnRetard(asOf) ? EmpruntStatus.EN_RETARD : EmpruntStatus.EN_COURS;
     }
 
     /**
@@ -131,9 +184,15 @@ public final class Emprunt {
      * Retourne la pénalité créée ou vide sinon.
      */
     public Optional<Penalite> genererPenaliteSiNecessaire(LocalDate asOf, Money tarifParJour) {
-        Objects.requireNonNull(asOf); Objects.requireNonNull(tarifParJour);
-        if (!estEnRetard(asOf)) return Optional.empty();
-        if (this.penalite != null) return Optional.of(this.penalite);
+        Objects.requireNonNull(asOf, "asOf");
+        Objects.requireNonNull(tarifParJour, "tarifParJour");
+
+        if (!estEnRetard(asOf)) {
+            return Optional.empty();
+        }
+        if (this.penalite != null) {
+            return Optional.of(this.penalite);
+        }
 
         Money montant = penaliteCourante(asOf, tarifParJour);
         this.penalite = Penalite.creerPour(this, montant, asOf);
@@ -152,14 +211,6 @@ public final class Emprunt {
     public LocalDate getDateRetourPrevue() { return dateRetourPrevue; }
     public LocalDate getDateRetourEffective() { return dateRetourEffective; }
 
-    // ---------- Types auxiliaires ----------
-    public enum Statut {
-        EN_COURS,
-        EN_RETARD,
-        RENDU,
-        RETOURNE_EN_RETARD
-    }
-
     /**
      * Définit l'identifiant technique (généré par la persistance).
      */
@@ -170,7 +221,7 @@ public final class Emprunt {
         }
         if (this.id != null && !this.id.equals(id)) {
             throw new IllegalStateException(
-                "L'identifiant de l'Emprunt est déjà défini (" + this.id + "), modification interdite."
+                    "L'identifiant de l'Emprunt est déjà défini (" + this.id + "), modification interdite."
             );
         }
         this.id = id;
@@ -179,23 +230,5 @@ public final class Emprunt {
     /** Délégation pratique pour les appels avec primitif. */
     public void setId(long id) {
         setId(Long.valueOf(id));
-    }
-
-    /**
-     * CORRIGÉ : Cette méthode est appelée par le DefaultEmpruntService.
-     * Elle appelle le constructeur principal.
-     */
-    public static Emprunt creer(Document document, Adherent adherent, LocalDate dateEmprunt,
-            LocalDate dateRetourPrevue) {
-        // Appelle le constructeur complet (canonique)
-        return new Emprunt(null, document, adherent, dateEmprunt, dateRetourPrevue, null, null);
-    }
-
-    /**
-     * CORRIGÉ : Cette méthode est appelée par le DefaultEmpruntService.
-     * Elle délègue à la logique de 'cloturerRetour'.
-     */
-    public void enregistrerRetour(LocalDate dateRetour) {
-        this.cloturerRetour(dateRetour);
     }
 }

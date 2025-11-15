@@ -30,11 +30,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Controller du catalogue :
- * - Grille 5x4 (20 cartes/page) avec placeholders
- * - Filtres et recherche
- * - Ajout via ISBN (OpenLibrary) ou manuel, édition, suppression
- * - Gestion des jaquettes (URL API ou fichier local via FileChooser + aperçu)
+ * Controller du catalogue.
+ *
+ * - Admin : CRUD complet (ajout/édition/suppression, jaquettes…)
+ * - Adhérent : consultation uniquement (recherche, filtres, détails).
  */
 public class CatalogueController {
 
@@ -48,21 +47,17 @@ public class CatalogueController {
     public static final double MIN_W = 1350;
     public static final double MIN_H = 800;
     private static final double COVER_H = 240;
-      
 
     // ====== FXML : Barre haute ======
     @FXML private TextField searchField;
     @FXML private Button btnSearch, btnRefresh, btnClear;
     @FXML private ProgressIndicator progress;
     @FXML private Label errorLabel;
-
-    // Bouton d’ajout (optionnel dans le FXML)
-    @FXML private Button btnAdd;
+    @FXML private Button btnAdd; // bouton d’ajout (admin only)
 
     // ====== Pagination ======
     @FXML private Pagination pagination;
-    @FXML private ScrollPane rootScroll; // <-- CORRECTION AJOUTÉE
-
+    @FXML private ScrollPane rootScroll;
 
     // ====== Panneau de filtres ======
     @FXML private TitledPane filtersPane;
@@ -75,14 +70,26 @@ public class CatalogueController {
     // ====== VM ======
     private CatalogueViewModel viewModel;
 
+    // ====== Mode (admin ou adhérent) ======
+    private final boolean adminMode;
+
     // ====== État local : chemin choisi pour la jaquette ======
     private String selectedCoverPath = null;
 
     // ====== Construction / Injection ======
-    public CatalogueController() {}
-    public CatalogueController(CatalogueViewModel vm) {
-        this.viewModel = Objects.requireNonNull(vm, "ViewModel ne peut être null");
+
+    /** Constructeur utilisé par le FXMLLoader si tu charges le FXML sans factory. */
+    public CatalogueController() {
+        // Fallback : on suppose admin dans ce cas (utilisation back-office).
+        this.adminMode = true;
     }
+
+    /** Constructeur utilisé par FxNavigator (injection propre). */
+    public CatalogueController(CatalogueViewModel vm, boolean adminMode) {
+        this.viewModel = Objects.requireNonNull(vm, "ViewModel ne peut être null");
+        this.adminMode = adminMode;
+    }
+
     public void setViewModel(CatalogueViewModel vm) {
         this.viewModel = Objects.requireNonNull(vm, "ViewModel ne peut être null");
     }
@@ -91,17 +98,33 @@ public class CatalogueController {
     @FXML
     private void initialize() {
         if (viewModel == null) {
-            throw new IllegalStateException("CatalogueViewModel non injecté. Appelez setViewModel() avant le chargement FXML.");
+            throw new IllegalStateException(
+                    "CatalogueViewModel non injecté. " +
+                    "Utilise soit le constructeur (CatalogueViewModel, boolean adminMode), " +
+                    "soit setViewModel() avant le chargement FXML."
+            );
+        }
+
+        // --- Mode adhérent : masquer le bouton d’ajout ---
+        if (!adminMode && btnAdd != null) {
+            setVisibleManaged(btnAdd, false);
         }
 
         // Bindings et actions barre haute
         searchField.textProperty().bindBidirectional(viewModel.queryProperty());
         btnSearch.setOnAction(e -> viewModel.searchWithFilters());
         btnRefresh.setOnAction(e -> viewModel.refreshWithFilters());
-        btnClear.setOnAction(e -> { searchField.clear(); viewModel.searchWithFilters(); });
+        btnClear.setOnAction(e -> {
+            searchField.clear();
+            viewModel.searchWithFilters();
+        });
 
         if (btnAdd != null) {
-            btnAdd.setOnAction(e -> showIsbnLookupDialog());
+            btnAdd.setOnAction(e -> {
+                if (adminMode) {
+                    showIsbnLookupDialog();
+                }
+            });
         }
 
         progress.visibleProperty().bind(viewModel.loadingProperty());
@@ -122,11 +145,15 @@ public class CatalogueController {
             cbType.getSelectionModel().selectFirst();
         }
         if (spAnneeMin != null) {
-            spAnneeMin.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1500, 2100, 1990));
+            spAnneeMin.setValueFactory(
+                    new SpinnerValueFactory.IntegerSpinnerValueFactory(1500, 2100, 1990)
+            );
             spAnneeMin.setEditable(true);
         }
         if (spAnneeMax != null) {
-            spAnneeMax.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1500, 2100, 2025));
+            spAnneeMax.setValueFactory(
+                    new SpinnerValueFactory.IntegerSpinnerValueFactory(1500, 2100, 2025)
+            );
             spAnneeMax.setEditable(true);
         }
         if (btnApplyFilters != null) {
@@ -140,8 +167,10 @@ public class CatalogueController {
                 if (cbType != null) cbType.getSelectionModel().selectFirst();
                 if (tfGenre != null) tfGenre.clear();
                 if (tfEditeur != null) tfEditeur.clear();
-                if (spAnneeMin != null && spAnneeMin.getValueFactory() != null) spAnneeMin.getValueFactory().setValue(1990);
-                if (spAnneeMax != null && spAnneeMax.getValueFactory() != null) spAnneeMax.getValueFactory().setValue(2025);
+                if (spAnneeMin != null && spAnneeMin.getValueFactory() != null)
+                    spAnneeMin.getValueFactory().setValue(1990);
+                if (spAnneeMax != null && spAnneeMax.getValueFactory() != null)
+                    spAnneeMax.getValueFactory().setValue(2025);
                 if (chkDisponible != null) chkDisponible.setSelected(false);
                 applyFiltersAndSearch();
             });
@@ -151,13 +180,15 @@ public class CatalogueController {
         if (pagination != null) {
             pagination.setPageFactory(this::buildPage);
         }
-        viewModel.getDocuments().addListener((javafx.collections.ListChangeListener<Document>) c -> rebuildPaginationPreserveIndex());
+        viewModel.getDocuments().addListener(
+                (javafx.collections.ListChangeListener<Document>) c -> rebuildPaginationPreserveIndex()
+        );
 
         // Bornes de la fenêtre
         Platform.runLater(() -> {
             try {
-                // CORRIGÉ : utilise rootScroll (le parent de la pagination) pour trouver la scène
-                var scene = rootScroll != null ? rootScroll.getScene() : (pagination != null ? pagination.getScene() : null);
+                var scene = rootScroll != null ? rootScroll.getScene()
+                        : (pagination != null ? pagination.getScene() : null);
                 if (scene != null) {
                     var win = scene.getWindow();
                     if (win instanceof javafx.stage.Stage st) {
@@ -170,6 +201,13 @@ public class CatalogueController {
 
         // Chargement initial
         viewModel.refreshWithFilters();
+    }
+
+    private void setVisibleManaged(Node node, boolean value) {
+        if (node != null) {
+            node.setVisible(value);
+            node.setManaged(value);
+        }
     }
 
     // ====== Filtres ======
@@ -188,16 +226,22 @@ public class CatalogueController {
         }
         if (tfGenre != null) fp.setGenre(nullIfBlank(tfGenre.getText()));
         if (tfEditeur != null) fp.setEditeur(nullIfBlank(tfEditeur.getText()));
-        if (spAnneeMin != null && spAnneeMin.getValueFactory() != null) fp.setAnneeMin(spAnneeMin.getValue());
-        if (spAnneeMax != null && spAnneeMax.getValueFactory() != null) fp.setAnneeMax(spAnneeMax.getValue());
+        if (spAnneeMin != null && spAnneeMin.getValueFactory() != null)
+            fp.setAnneeMin(spAnneeMin.getValue());
+        if (spAnneeMax != null && spAnneeMax.getValueFactory() != null)
+            fp.setAnneeMax(spAnneeMax.getValue());
         if (chkDisponible != null) fp.setDisponibleUniquement(chkDisponible.isSelected());
 
         viewModel.setFilters(fp);
         viewModel.searchWithFilters();
     }
 
-    private static String nullIfBlank(String s) { return (s == null || s.isBlank()) ? null : s; }
-    private static String safe(String s) { return (s == null || s.isBlank()) ? "—" : s; }
+    private static String nullIfBlank(String s) {
+        return (s == null || s.isBlank()) ? null : s;
+    }
+    private static String safe(String s) {
+        return (s == null || s.isBlank()) ? "—" : s;
+    }
 
     // ====== Pagination ======
     private void rebuildPaginationPreserveIndex() {
@@ -254,24 +298,20 @@ public class CatalogueController {
 
     // ====== Cartes ======
     private Region createCard(Document doc) {
-        VBox card = new VBox(6); // Espacement vertical interne
-        // Garde les classes de base pour la forme et l'ombre
+        VBox card = new VBox(6);
         card.getStyleClass().addAll("product-card", "product-card--compact");
         card.setPrefSize(CARD_W, CARD_H);
         card.setMaxSize(CARD_W, CARD_H);
         card.setPickOnBounds(true);
         card.setCursor(javafx.scene.Cursor.HAND);
-        card.setAlignment(Pos.TOP_CENTER); // Centre le contenu horizontalement
+        card.setAlignment(Pos.TOP_CENTER);
 
-        // --- Zone Image ---
+        // Zone image
         StackPane coverPane = new StackPane();
-        // **CORRIGÉ**: Supprime la classe .product-cover par défaut
-        // coverPane.getStyleClass().add("product-cover");
-        coverPane.setPrefHeight(COVER_H); // Hauteur définie plus haut
+        coverPane.setPrefHeight(COVER_H);
         coverPane.setMinHeight(COVER_H);
         coverPane.setMaxHeight(COVER_H);
         coverPane.setAlignment(Pos.CENTER);
-        // **CORRIGÉ**: Ajoute un fond gris clair subtil (visible si image absente/petite)
         coverPane.setStyle("-fx-background-color: #eeeeee;");
 
         String coverRef = doc.getCoverRef();
@@ -280,7 +320,7 @@ public class CatalogueController {
                 File imageFile = new File(coverRef);
                 if (imageFile.exists() && imageFile.isFile()) {
                     String imageUrl = imageFile.toURI().toString();
-                    Image img = new Image(imageUrl, true); // Chargement arrière-plan
+                    Image img = new Image(imageUrl, true);
 
                     img.errorProperty().addListener((obs, oldError, newError) -> {
                         if (newError) {
@@ -291,17 +331,11 @@ public class CatalogueController {
 
                     if (!img.isError()) {
                         ImageView imgView = new ImageView(img);
-                        // **CORRIGÉ**: Ajuste à la LARGEUR de la carte
                         imgView.setFitWidth(CARD_W);
-                        // **CORRIGÉ**: Ajuste aussi à la HAUTEUR de la zone cover
                         imgView.setFitHeight(COVER_H);
-                        // **CORRIGÉ**: Garde les proportions (letterbox/pillarbox possible)
                         imgView.setPreserveRatio(false);
                         imgView.setSmooth(true);
                         coverPane.getChildren().add(imgView);
-                    } else {
-                        System.err.println("Erreur immédiate chargement image carte : " + imageUrl);
-                        if (img.getException() != null) img.getException().printStackTrace();
                     }
                 }
             } catch (Exception e) {
@@ -309,38 +343,38 @@ public class CatalogueController {
             }
         }
 
-        // --- Zone Texte ---
-        VBox textContent = new VBox(4); // Espacement plus petit pour le texte
-        textContent.setPadding(new Insets(8, 8, 8, 8)); // Padding autour du texte
+        // Zone texte
+        VBox textContent = new VBox(4);
+        textContent.setPadding(new Insets(8));
         textContent.setAlignment(Pos.CENTER_LEFT);
 
-        Label title = new Label(Objects.toString(doc.getTitre(),"Sans titre"));
+        Label title = new Label(Objects.toString(doc.getTitre(), "Sans titre"));
         title.getStyleClass().add("product-title");
         title.setWrapText(true);
-        title.setMaxWidth(CARD_W - 16); // Empêche le texte de déborder
+        title.setMaxWidth(CARD_W - 16);
 
         String metaStr = String.format("%s • %s • %s",
                 safe(doc.getGenre()), safe(doc.getEditeur()),
-                doc.getAnneePublication()!=null ? doc.getAnneePublication() : "—");
+                doc.getAnneePublication() != null ? doc.getAnneePublication() : "—");
         Label meta = new Label(metaStr);
         meta.getStyleClass().add("product-meta");
         meta.setWrapText(true);
         meta.setMaxWidth(CARD_W - 16);
 
         textContent.getChildren().addAll(title, meta);
-
-        // Ajoute les zones image et texte à la carte principale
         card.getChildren().addAll(coverPane, textContent);
 
-        // Actions au clic (inchangé)
+        // Actions au clic
         card.setOnMouseClicked(e -> {
-            if (e.getButton() == MouseButton.PRIMARY) showDetails(doc);
-            else if (e.getButton() == MouseButton.SECONDARY) showAddOrEditDialog(doc, null);
+            if (e.getButton() == MouseButton.PRIMARY) {
+                showDetails(doc);                 // Tous les rôles
+            } else if (e.getButton() == MouseButton.SECONDARY && adminMode) {
+                showAddOrEditDialog(doc, null);   // Admin uniquement
+            }
         });
 
         return card;
     }
-
 
     private Region createPlaceholder() {
         VBox ph = new VBox(6);
@@ -359,7 +393,12 @@ public class CatalogueController {
         Label l3 = new Label(); l3.getStyleClass().addAll("skeleton-line", "short");
 
         ph.getChildren().addAll(cover, l1, l2, l3);
-        ph.setOnMouseClicked(e -> showIsbnLookupDialog());
+
+        // Placeholder cliquable uniquement pour l’admin (ajout rapide)
+        if (adminMode) {
+            ph.setOnMouseClicked(e -> showIsbnLookupDialog());
+        }
+
         return ph;
     }
 
@@ -370,15 +409,26 @@ public class CatalogueController {
         addTheme(d.getDialogPane());
 
         GridPane gp = new GridPane();
-        gp.setHgap(10); gp.setVgap(8); gp.setPadding(new Insets(16));
+        gp.setHgap(10);
+        gp.setVgap(8);
+        gp.setPadding(new Insets(16));
         gp.addRow(0, new Label("Titre"),   new Label(safe(doc.getTitre())));
         gp.addRow(1, new Label("Type"),    new Label(safe(doc.getDtype())));
         gp.addRow(2, new Label("Genre"),   new Label(safe(doc.getGenre())));
         gp.addRow(3, new Label("Éditeur"), new Label(safe(doc.getEditeur())));
-        gp.addRow(4, new Label("Année"),   new Label(doc.getAnneePublication()==null?"—":doc.getAnneePublication().toString()));
+        gp.addRow(4, new Label("Année"),
+                new Label(doc.getAnneePublication() == null ? "—" : doc.getAnneePublication().toString()));
 
         d.getDialogPane().setContent(gp);
 
+        if (!adminMode) {
+            // Adhérent : lecture seule, juste un bouton Fermer
+            d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+            d.showAndWait();
+            return;
+        }
+
+        // Admin : modifier / supprimer
         ButtonType BTN_EDIT   = new ButtonType("Modifier",  ButtonBar.ButtonData.OK_DONE);
         ButtonType BTN_DELETE = new ButtonType("Supprimer", ButtonBar.ButtonData.LEFT);
         d.getDialogPane().getButtonTypes().addAll(BTN_EDIT, BTN_DELETE, ButtonType.CLOSE);
@@ -397,6 +447,8 @@ public class CatalogueController {
     }
 
     private void confirmAndDelete(Document doc) {
+        if (!adminMode) return;
+
         Alert a = new Alert(Alert.AlertType.CONFIRMATION);
         a.setTitle("Confirmer la suppression");
         a.setHeaderText("Supprimer « " + safe(doc.getTitre()) + " » ?");
@@ -417,6 +469,8 @@ public class CatalogueController {
 
     // ====== Ajout via ISBN (OpenLibrary) ======
     private void showIsbnLookupDialog() {
+        if (!adminMode) return;
+
         Dialog<String> dlg = new Dialog<>();
         dlg.setTitle("Ajouter un document");
         dlg.setHeaderText("Recherche par ISBN");
@@ -483,6 +537,8 @@ public class CatalogueController {
      * @param meta     Métadonnées retournées par OpenLibrary (ajout auto) ou null
      */
     private void showAddOrEditDialog(Document existing, BookMeta meta) {
+        if (!adminMode) return;
+
         Dialog<ButtonType> dlg = new Dialog<>();
         dlg.setTitle(existing == null ? "Ajouter un document" : "Modifier le document");
         addTheme(dlg.getDialogPane());
@@ -503,9 +559,15 @@ public class CatalogueController {
         selectedCoverPath = null;
 
         // Champs communs
-        TextField tfTitre   = new TextField(existing != null ? existing.getTitre() : (meta != null ? meta.titre() : ""));
-        TextField tfEditeur = new TextField(existing != null ? existing.getEditeur() : (meta != null ? meta.editeur() : ""));
-        TextField tfGenre   = new TextField(existing != null ? existing.getGenre() : (meta != null ? meta.genre() : ""));
+        TextField tfTitre   = new TextField(
+                existing != null ? existing.getTitre() : (meta != null ? meta.titre() : "")
+        );
+        TextField tfEditeur = new TextField(
+                existing != null ? existing.getEditeur() : (meta != null ? meta.editeur() : "")
+        );
+        TextField tfGenre   = new TextField(
+                existing != null ? existing.getGenre() : (meta != null ? meta.genre() : "")
+        );
         Spinner<Integer> spAnnee = new Spinner<>(1500, 2100,
                 existing != null && existing.getAnneePublication() != null
                         ? existing.getAnneePublication()
@@ -515,7 +577,8 @@ public class CatalogueController {
 
         ComboBox<String> cbTypeDoc = new ComboBox<>();
         cbTypeDoc.getItems().addAll("Livre", "Magazine", "CD");
-        String defaultType = (meta != null) ? "Livre" : (existing != null && existing.getDtype() != null ? existing.getDtype() : "Livre");
+        String defaultType = (meta != null) ? "Livre"
+                : (existing != null && existing.getDtype() != null ? existing.getDtype() : "Livre");
         cbTypeDoc.getSelectionModel().select(defaultType);
         if (meta != null) cbTypeDoc.setDisable(true);
 
@@ -588,7 +651,12 @@ public class CatalogueController {
         cbTypeDoc.setOnAction(e -> {
             String type = cbTypeDoc.getValue();
             specificBox.getChildren().setAll(
-                    buildSpecificPaneFor(type, tfAuteur, tfIsbn, spPages, spNumero, tfParution, spDuree, tfArtiste, tfLabel)
+                    buildSpecificPaneFor(
+                            type,
+                            tfAuteur, tfIsbn, spPages,
+                            spNumero, tfParution,
+                            spDuree, tfArtiste, tfLabel
+                    )
             );
         });
         cbTypeDoc.getOnAction().handle(null); // initialisation
@@ -606,7 +674,10 @@ public class CatalogueController {
         pane.setContent(form);
         dlg.getDialogPane().setContent(pane);
 
-        ButtonType BTN_SAVE = new ButtonType(existing == null ? "Enregistrer" : "Mettre à jour", ButtonBar.ButtonData.OK_DONE);
+        ButtonType BTN_SAVE = new ButtonType(
+                existing == null ? "Enregistrer" : "Mettre à jour",
+                ButtonBar.ButtonData.OK_DONE
+        );
         dlg.getDialogPane().getButtonTypes().addAll(BTN_SAVE, ButtonType.CANCEL);
         styleAsPrimary(dlg.getDialogPane(), BTN_SAVE);
 
@@ -664,7 +735,6 @@ public class CatalogueController {
                     if (selectedCoverPath != null) {
                         viewModel.createWithLocalCover(docToSave, selectedCoverPath);
                     } else {
-                        // Ajout manuel (pas d'image) ou ajout API (coverUrlApi potentiellement non null)
                         viewModel.create(docToSave, coverUrlApi);
                     }
                 } else {
@@ -673,7 +743,6 @@ public class CatalogueController {
                     if (selectedCoverPath != null) {
                         viewModel.updateWithLocalCover(docToSave, selectedCoverPath);
                     } else {
-                        // Ne pas écraser la jaquette existante par une URL API à ce stade
                         viewModel.update(docToSave, null);
                     }
                 }
@@ -684,15 +753,14 @@ public class CatalogueController {
     /** Met à jour l’aperçu de jaquette dans le formulaire. */
     private void updateCoverPreview(ImageView imageView, String path, boolean isLocalAbsolutePath) {
         if (path == null || path.isBlank()) {
-            imageView.setImage(null); // Efface l'aperçu si pas de chemin
+            imageView.setImage(null);
             return;
         }
         try {
             String imageUrl;
-            File imageFile = new File(path); // Crée l'objet File dans tous les cas
+            File imageFile = new File(path);
 
             if (isLocalAbsolutePath) {
-                // Chemin absolu d'un fichier local choisi
                 if (imageFile.exists() && imageFile.isFile()) {
                     imageUrl = imageFile.toURI().toString();
                 } else {
@@ -700,34 +768,32 @@ public class CatalogueController {
                     System.err.println("Aperçu : Fichier local choisi non trouvé : " + path);
                 }
             } else {
-                // Chemin relatif stocké en BDD (ex: "covers/...")
-                 if (imageFile.exists() && imageFile.isFile()) {
+                if (imageFile.exists() && imageFile.isFile()) {
                     imageUrl = imageFile.toURI().toString();
                 } else {
-                    imageUrl = null; // Fichier non trouvé dans ./covers
+                    imageUrl = null;
                     System.err.println("Aperçu : Fichier image BDD non trouvé : " + path);
                 }
             }
 
             if (imageUrl != null) {
-                Image img = new Image(imageUrl, true); // Background loading
+                Image img = new Image(imageUrl, true);
                 imageView.setImage(img);
-                // Optionnel : Gérer les erreurs de chargement pour l'aperçu
                 img.errorProperty().addListener((obs, old, err) -> {
                     if (err) {
                         System.err.println("Erreur chargement aperçu: " + imageUrl);
-                         imageView.setImage(null); // Efface l'aperçu en cas d'erreur
+                        imageView.setImage(null);
                     }
                 });
-                if (img.isError()) { // Vérifie aussi l'erreur immédiate
-                     System.err.println("Erreur immédiate chargement aperçu: " + imageUrl);
-                     imageView.setImage(null);
+                if (img.isError()) {
+                    System.err.println("Erreur immédiate chargement aperçu: " + imageUrl);
+                    imageView.setImage(null);
                 }
             } else {
-                imageView.setImage(null); // Efface si le fichier n'existe pas
+                imageView.setImage(null);
             }
         } catch (Exception e) {
-            imageView.setImage(null); // Efface en cas d'erreur
+            imageView.setImage(null);
             System.err.println("Erreur mise à jour aperçu : " + path + " - " + e.getMessage());
         }
     }
@@ -741,7 +807,8 @@ public class CatalogueController {
         gp.setHgap(10); gp.setVgap(6);
         gp.getColumnConstraints().addAll(
                 new ColumnConstraints(),
-                new ColumnConstraints(Region.USE_PREF_SIZE, Region.USE_COMPUTED_SIZE, Region.USE_PREF_SIZE, Priority.ALWAYS, HPos.LEFT, true)
+                new ColumnConstraints(Region.USE_PREF_SIZE, Region.USE_COMPUTED_SIZE,
+                        Region.USE_PREF_SIZE, Priority.ALWAYS, HPos.LEFT, true)
         );
 
         int r = 0;

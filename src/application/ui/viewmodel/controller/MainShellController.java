@@ -3,98 +3,204 @@ package application.ui.viewmodel.controller;
 import application.ui.navigation.Navigator;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
-import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.control.Control;
 import javafx.scene.control.Label;
-import javafx.scene.control.ToggleGroup;
-import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.BorderPane; // Import manquant
+import javafx.scene.control.ToggleButton;
+import javafx.scene.layout.BorderPane;
 
 /**
- * Contrôleur pour le "Shell" principal de l'application (la navigation).
- * Gère l'injection du contenu central et les actions de navigation.
- *
- * CORRIGÉ : Ajout de tous les @FXML requis par MainShell.fxml.
+ * Contrôleur du Shell principal (MainShell.fxml).
+ * - Affiche le nom + rôle de l'utilisateur
+ * - Active / désactive les entrées du menu selon le rôle
+ * - Ne déclenche PAS de navigation automatique sur le Dashboard,
+ *   pour éviter toute récursion avec FxNavigator.
  */
 public class MainShellController {
 
-    // --- CORRIGÉ : Ajout des @FXML manquants ---
-    @FXML private BorderPane rootPane;
-    @FXML private AnchorPane contentPane;
-    @FXML private ToggleGroup navGroup;
-    @FXML private Label lblUsername;
-    @FXML private Label lblRole;
-    // --- Fin des corrections ---
-    
+    // --- Zone centrale dans laquelle le Navigator injecte les vues ---
+    @FXML
+    private BorderPane rootPane;
+
+    // --- Barre haute / header (IDs selon le FXML !) ---
+    @FXML
+    private Label lblUsername;
+
+    @FXML
+    private Label lblRole;
+
+    // --- Boutons / menus (ToggleButton comme dans le FXML) ---
+    @FXML
+    private ToggleButton btnDashboard;
+
+    @FXML
+    private ToggleButton btnCatalog;
+
+    @FXML
+    private ToggleButton btnAdherents;
+
+    @FXML
+    private ToggleButton btnLoans;
+
+    @FXML
+    private ToggleButton btnPenalites;
+
+    @FXML
+    private ToggleButton btnMesEmprunts;
+
+    @FXML
+    private ToggleButton btnMesPenalites;
+
+    // --- Référence au Navigator ---
     private Navigator navigator;
+
+    // =========================================================
+    // Injection du Navigator
+    // =========================================================
 
     public void setNavigator(Navigator navigator) {
         this.navigator = navigator;
     }
 
-    /**
-     * Injecte une vue (chargée par le Navigator) dans la zone de contenu.
-     */
-    public void setContent(Node view) {
-        if (contentPane != null) {
-            contentPane.getChildren().setAll(view);
-            // Assure que le contenu remplit l'AnchorPane
-            AnchorPane.setTopAnchor(view, 0.0);
-            AnchorPane.setBottomAnchor(view, 0.0);
-            AnchorPane.setLeftAnchor(view, 0.0);
-            AnchorPane.setRightAnchor(view, 0.0);
-        }
-    }
+    // =========================================================
+    // Contexte utilisateur
+    // =========================================================
 
     /**
-     * Met à jour les infos utilisateur dans le menu.
-     * (Utilise les fx:id corrigés 'lblUsername' et 'lblRole')
+     * Méthode appelée par FxNavigator.applyUserContextToShell().
+     * @param username  email ou nom à afficher
+     * @param roleName  "ADMIN", "ADHERENT", etc.
      */
-    public void setUserContext(String username, String role) {
+    public void setUserContext(String username, String roleName) {
         if (lblUsername != null) {
-            lblUsername.setText(username != null ? username : "Utilisateur");
+            lblUsername.setText(username != null ? username : "Invité");
         }
         if (lblRole != null) {
-            lblRole.setText(role != null ? role : "N/A");
+            lblRole.setText(roleName != null ? roleName : "Rôle inconnu");
+        }
+
+        configureForRole(roleName);
+    }
+
+    /**
+     * Active / désactive les boutons/menu selon le rôle.
+     * ⚠️ NE DOIT PAS APPELER navigator.goToDashboard() !
+     */
+    private void configureForRole(String roleName) {
+        boolean isAdmin    = roleName != null && "ADMIN".equalsIgnoreCase(roleName);
+        boolean isAdherent = roleName != null && "ADHERENT".equalsIgnoreCase(roleName);
+
+        if (isAdmin) {
+            // Admin : accès complet
+            setVisibleAndManaged(btnDashboard, true);
+            setVisibleAndManaged(btnCatalog, true);
+            setVisibleAndManaged(btnAdherents, true);
+            setVisibleAndManaged(btnLoans, true);
+            setVisibleAndManaged(btnPenalites, true);
+
+            setVisibleAndManaged(btnMesEmprunts, false);
+            setVisibleAndManaged(btnMesPenalites, false);
+
+        } else if (isAdherent) {
+            // Adhérent : accès au catalogue + vues perso
+            setVisibleAndManaged(btnDashboard, false);
+            setVisibleAndManaged(btnCatalog, true);
+            setVisibleAndManaged(btnAdherents, false);
+            setVisibleAndManaged(btnLoans, false);
+            setVisibleAndManaged(btnPenalites, false);
+
+            setVisibleAndManaged(btnMesEmprunts, true);
+            setVisibleAndManaged(btnMesPenalites, true);
+
+        } else {
+            // Invité / rôle inconnu
+            setVisibleAndManaged(btnDashboard, false);
+            setVisibleAndManaged(btnCatalog, true);
+            setVisibleAndManaged(btnAdherents, false);
+            setVisibleAndManaged(btnLoans, false);
+            setVisibleAndManaged(btnPenalites, false);
+
+            setVisibleAndManaged(btnMesEmprunts, false);
+            setVisibleAndManaged(btnMesPenalites, false);
         }
     }
 
-    // --- Actions de Navigation ---
+    private void setVisibleAndManaged(Control c, boolean value) {
+        if (c != null) {
+            c.setVisible(value);
+            c.setManaged(value);
+        }
+    }
+
+    // =========================================================
+    // Méthode appelée par le Navigator pour injecter une vue
+    // =========================================================
+
+    /**
+     * Appelée par FxNavigator.setCenter(...).
+     */
+    public void setContent(Parent view) {
+        if (rootPane != null) {
+            rootPane.setCenter(view);
+        }
+    }
+
+    // =========================================================
+    // Handlers des boutons du menu (NOMS = onAction du FXML)
+    // =========================================================
 
     @FXML
     private void goDashboard() {
-        if (navigator != null) navigator.goToDashboard();
+        if (navigator != null) {
+            // session déjà connue côté Navigator
+            navigator.goToDashboard(null);
+        }
     }
 
     @FXML
     private void goCatalog() {
-        if (navigator != null) navigator.goToCatalog();
+        if (navigator != null) {
+            navigator.goToCatalog();
+        }
     }
 
     @FXML
     private void goAdherents() {
-        if (navigator != null) navigator.goToAdherents();
+        if (navigator != null) {
+            navigator.goToAdherents();
+        }
     }
 
     @FXML
     private void goLoans() {
-        if (navigator != null) navigator.goToLoans();
+        if (navigator != null) {
+            navigator.goToLoans();
+        }
     }
-    
-    /**
-     * NOUVEAU : Gère le clic sur le bouton Pénalités.
-     */
+
     @FXML
     private void goPenalites() {
-        // Doit caster car l'interface Navigator de base ne connaît pas cette méthode
-        if (navigator != null && navigator instanceof application.ui.navigation.fx.FxNavigator) {
-             ((application.ui.navigation.fx.FxNavigator) navigator).goToPenalites();
+        if (navigator != null) {
+            navigator.goToPenalites();
+        }
+    }
+
+    @FXML
+    private void goMesEmprunts() {
+        if (navigator != null) {
+            navigator.goToMesEmprunts();
+        }
+    }
+
+    @FXML
+    private void goMesPenalites() {
+        if (navigator != null) {
+            navigator.goToMesPenalites();
         }
     }
 
     @FXML
     private void exitApp() {
-        // Utiliser Platform.exit() est plus propre que System.exit(0)
         Platform.exit();
     }
 }
-

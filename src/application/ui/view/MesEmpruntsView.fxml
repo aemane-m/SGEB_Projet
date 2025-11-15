@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="application.ui.viewmodel.controller.MesEmpruntsController">
+
+    <top>
+        <HBox spacing="8">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <children>
+                <CheckBox fx:id="chkActifsOnly"
+                          text="Afficher uniquement les emprunts en cours"/>
+                <Button fx:id="btnRefresh" text="Rafraîchir"/>
+                <ProgressIndicator fx:id="progress"
+                                   prefWidth="20"
+                                   prefHeight="20"/>
+            </children>
+        </HBox>
+    </top>
+
+    <center>
+        <TableView fx:id="table">
+            <columns>
+                <TableColumn fx:id="colDocument"    text="Document"/>
+                <TableColumn fx:id="colDateEmprunt" text="Date d'emprunt"/>
+                <TableColumn fx:id="colDatePrevue"  text="Retour prévu"/>
+                <TableColumn fx:id="colDateRetour"  text="Retour effectif"/>
+                <TableColumn fx:id="colStatut"      text="Statut"/>
+            </columns>
+        </TableView>
+    </center>
+
+    <bottom>
+        <Label fx:id="errorLabel"
+               styleClass="error-label">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+        </Label>
+    </bottom>
+</BorderPane>

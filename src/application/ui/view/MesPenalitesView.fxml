@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/21"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="application.ui.viewmodel.controller.MesPenalitesController"
+      spacing="8">
+
+    <padding>
+        <Insets top="10" right="10" bottom="10" left="10"/>
+    </padding>
+
+    <HBox spacing="8">
+        <children>
+            <Button fx:id="btnRefresh" text="Rafraîchir"/>
+            <ProgressIndicator fx:id="progress"
+                               prefWidth="20"
+                               prefHeight="20"/>
+        </children>
+    </HBox>
+
+    <TableView fx:id="table" VBox.vgrow="ALWAYS">
+        <columns>
+            <TableColumn fx:id="colDoc"     text="Document"/>
+            <TableColumn fx:id="colDate"    text="Date"/>
+            <TableColumn fx:id="colMontant" text="Montant"/>
+            <TableColumn fx:id="colStatut"  text="Statut"/>
+            <TableColumn fx:id="colAction"  text="Action"/>
+        </columns>
+    </TableView>
+
+    <Label fx:id="errorLabel"   styleClass="error-label"/>
+    <Label fx:id="successLabel" styleClass="success-label"/>
+</VBox>

@@ -1,6 +1,7 @@
 package application.domain.core.security;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -16,10 +17,14 @@ import java.util.Set;
  * d’aucune technologie de persistance ou d’authentification.</p>
  *
  * @see Capability
- * @author SGEB
- * @version 1.0
  */
 public final class Role {
+
+    /** Nom symbolique standard du rôle Administrateur. */
+    public static final String NAME_ADMIN = "ADMIN";
+
+    /** Nom symbolique standard du rôle Adhérent. */
+    public static final String NAME_ADHERENT = "ADHERENT";
 
     /** Nom symbolique du rôle (ex: "ADMIN", "ADHERENT") */
     private final String nom;
@@ -35,7 +40,9 @@ public final class Role {
      */
     public Role(String nom, Set<Capability> capabilities) {
         this.nom = Objects.requireNonNull(nom, "nom");
-        this.capabilities = capabilities != null ? new HashSet<>(capabilities) : new HashSet<>();
+        this.capabilities = (capabilities != null)
+                ? new HashSet<>(capabilities)
+                : new HashSet<>();
     }
 
     /**
@@ -49,18 +56,59 @@ public final class Role {
     }
 
     /**
+     * Factory rôle standard ADMIN :
+     * - accès au dashboard admin, catalogue, emprunts, pénalités,
+     *   adhérents, utilisateurs, stats, historique, etc.
+     */
+    public static Role adminRole() {
+        Set<Capability> caps = EnumSet.of(
+                Capability.VIEW_ADMIN_DASHBOARD,
+                Capability.MANAGE_USERS,
+                Capability.MANAGE_ADHERENTS,
+                Capability.MANAGE_DOCUMENTS,
+                Capability.MANAGE_CATALOGUE,
+                Capability.MANAGE_EMPRUNTS,
+                Capability.MANAGE_PENALITES,
+                Capability.VIEW_STATS,
+                Capability.VIEW_HISTORY,
+                Capability.CONSULT_CATALOG
+        );
+        return new Role(NAME_ADMIN, caps);
+    }
+
+    /**
+     * Factory rôle standard ADHERENT :
+     * - consultation catalogue
+     * - emprunt / retour
+     * - consultation de ses emprunts / pénalités.
+     */
+    public static Role adherentRole() {
+        Set<Capability> caps = EnumSet.of(
+                Capability.CONSULT_CATALOG,
+                Capability.BORROW_DOCUMENT,
+                Capability.RETURN_DOCUMENT,
+                Capability.VIEW_SELF_LOANS,
+                Capability.VIEW_SELF_PENALTIES
+        );
+        return new Role(NAME_ADHERENT, caps);
+    }
+
+    /**
      * Retourne le nom du rôle.
-     *
-     * @return nom du rôle
      */
     public String getNom() {
         return nom;
     }
 
     /**
+     * Nom du rôle (alias anglophone).
+     */
+    public String getName() {
+        return nom;
+    }
+
+    /**
      * Retourne les capacités associées à ce rôle (lecture seule).
-     *
-     * @return ensemble immuable des capacités
      */
     public Set<Capability> getCapabilities() {
         return Collections.unmodifiableSet(capabilities);
@@ -68,9 +116,6 @@ public final class Role {
 
     /**
      * Vérifie si le rôle possède une capacité donnée.
-     *
-     * @param capability capacité à tester
-     * @return {@code true} si présente, sinon {@code false}
      */
     public boolean hasCapability(Capability capability) {
         return capabilities.contains(capability);
@@ -78,8 +123,6 @@ public final class Role {
 
     /**
      * Ajoute une capacité au rôle.
-     *
-     * @param capability capacité à ajouter
      */
     public void addCapability(Capability capability) {
         capabilities.add(Objects.requireNonNull(capability));
@@ -87,11 +130,19 @@ public final class Role {
 
     /**
      * Supprime une capacité du rôle.
-     *
-     * @param capability capacité à retirer
      */
     public void removeCapability(Capability capability) {
         capabilities.remove(capability);
+    }
+
+    /** Rôle logique ADMIN ? */
+    public boolean isAdmin() {
+        return NAME_ADMIN.equalsIgnoreCase(nom);
+    }
+
+    /** Rôle logique ADHERENT ? */
+    public boolean isAdherent() {
+        return NAME_ADHERENT.equalsIgnoreCase(nom);
     }
 
     @Override
@@ -113,9 +164,5 @@ public final class Role {
     @Override
     public int hashCode() {
         return nom.toLowerCase().hashCode();
-    }
-
-    public String getName() {
-        return nom;
     }
 }

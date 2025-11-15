@@ -1,177 +1,255 @@
 package application.ui.viewmodel.controller;
 
-import application.domain.service.AccountService; 
+import application.domain.service.AccountService;
+import application.ui.navigation.Navigator;
 import javafx.application.Platform;
-import javafx.fxml.FXML;
-import javafx.scene.control.*;
-import javafx.scene.layout.VBox; 
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.beans.property.BooleanProperty;
-import javafx.beans.property.SimpleBooleanProperty; 
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 
+import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+/**
+ * Contrôleur de l'écran de connexion.
+ *
+ * - Le 1er admin est créé via le SetupWizard, pas ici.
+ * - Cet écran sert uniquement à authentifier un utilisateur
+ *   puis à déléguer la navigation au Navigator (shell + dashboard).
+ */
 public class LoginController {
 
-    // --- Panneaux ---
+    // --- Panneau principal ---
     @FXML private VBox loginPane;
-    @FXML private VBox createPane;
 
     // --- Zone Login ---
-    @FXML private TextField usernameField;
+    @FXML private TextField usernameField;   // email de connexion
     @FXML private PasswordField passwordField;
     @FXML private Button btnLogin;
-    @FXML private Button btnShowCreate;
     @FXML private Label errorLabel;
     @FXML private ProgressIndicator progress;
 
-    // --- Formulaire de création ---
-    @FXML private TextField createUsernameField;
-    @FXML private PasswordField createPasswordField;
-    @FXML private TextField createPrenomField; // <-- CORRIGÉ (Ajouté)
-    @FXML private TextField createNomField;    // <-- CORRIGÉ (Ajouté)
-    
-    @FXML private Button btnCreate;
-    @FXML private Button btnCancelCreate;
-    @FXML private Label createInfoLabel;
-    @FXML private Label createErrorLabel;
+    // --- Bouton retour à la Landing ---
+    @FXML private Button btnBackToLanding;
 
     // --- Service injecté (domaine) ---
     private AccountService accountService;
-    
+
+    // --- Navigation injectée (UI) ---
+    private Navigator navigator;
+
     // --- État interne ---
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
 
-    public LoginController() { }
-
-    public void setAccountService(AccountService svc) {
-        this.accountService = Objects.requireNonNull(svc, "AccountService cannot be null");
-        Platform.runLater(this::detectFirstRunSafely);
+    public LoginController() {
+        // requis par JavaFX
     }
 
+    // ===================================================================
+    // Injections
+    // ===================================================================
+
+    public void setAccountService(AccountService svc) {
+        this.accountService = Objects.requireNonNull(svc, "AccountService ne peut pas être null");
+    }
+
+    public void setNavigator(Navigator navigator) {
+        this.navigator = Objects.requireNonNull(navigator, "Navigator ne peut pas être null");
+    }
+
+    // ===================================================================
+    // Initialisation JavaFX
+    // ===================================================================
 
     @FXML
     private void initialize() {
-        // --- Bindings ---
+        // --- Validation du formulaire de login ---
         BooleanBinding loginFieldsEmpty = Bindings.createBooleanBinding(
                 () -> isBlank(usernameField.getText()) || isBlank(passwordField.getText()),
                 usernameField.textProperty(), passwordField.textProperty()
         );
         btnLogin.disableProperty().bind(loginFieldsEmpty.or(loading));
 
-        // CORRIGÉ : Le binding de validation inclut maintenant nom et prenom
-        BooleanBinding createFieldsInvalid = Bindings.createBooleanBinding(
-                () -> isBlank(createUsernameField.getText())
-                        || createPasswordField.getText() == null
-                        || createPasswordField.getText().length() < 6
-                        || isBlank(createPrenomField.getText()) // <-- CORRIGÉ
-                        || isBlank(createNomField.getText()),    // <-- CORRIGÉ
-                createUsernameField.textProperty(), 
-                createPasswordField.textProperty(),
-                createPrenomField.textProperty(), // <-- CORRIGÉ
-                createNomField.textProperty()     // <-- CORRIGÉ
-        );
-        btnCreate.disableProperty().bind(createFieldsInvalid.or(loading));
-        
-        btnCancelCreate.disableProperty().bind(loading);
-        btnShowCreate.disableProperty().bind(loading);
+        // --- Bouton retour désactivé pendant le chargement ---
+        if (btnBackToLanding != null) {
+            btnBackToLanding.disableProperty().bind(loading);
+        }
 
-        // --- Actions ---
-        btnLogin.setOnAction(e -> onLoginClicked());
-        btnCreate.setOnAction(e -> onCreateClicked()); // <- Cette méthode est corrigée
-        btnShowCreate.setOnAction(e -> toggleCreatePane(true));
-        btnCancelCreate.setOnAction(e -> toggleCreatePane(false));
-
-        // --- État Initial ---
+        // --- Spinner de chargement ---
         progress.visibleProperty().bind(loading);
         progress.managedProperty().bind(loading);
-        toggleCreatePane(false); 
+
+        // --- Actions boutons ---
+        btnLogin.setOnAction(e -> onLoginClicked());
+
         clearMessages();
-        clearCreateMessages();
     }
+
+    // ===================================================================
+    // Login
+    // ===================================================================
+
+    @FXML
+    private void onLoginClicked() {
+        clearMessages();
+
+        if (accountService == null) {
+            showError("Service d'authentification non initialisé.");
+            return;
+        }
+
+        final String email = trim(usernameField.getText());
+        final String pass  = passwordField.getText();
+
+        runSafely(() -> {
+            AccountService.LoginResult result = accountService.login(email, pass);
+
+            Platform.runLater(() -> {
+                if (!result.success()) {
+                    showError(result.message());
+                    return;
+                }
+
+                AccountService.UserSession session = result.session();
+                if (session == null) {
+                    showError("Erreur interne : session manquante après authentification.");
+                    return;
+                }
+
+                // (optionnel) gestion du mot de passe à changer :
+                // if (session.passwordMustChange()) { ... }
+
+                if (navigator != null) {
+                    navigator.showShell();             // ouvre MainShell.fxml
+                    navigator.goToDashboard(session);  // dashboard + contexte utilisateur
+                } else {
+                    System.err.println("Navigator non injecté dans LoginController ; impossible de naviguer vers le Dashboard.");
+                }
+            });
+        }, ex -> showError("Erreur : " + msg(ex)));
+    }
+
+    // ===================================================================
+    // Retour à la Landing
+    // ===================================================================
 
     /**
-     * CORRIGÉ: L'action de création envoie maintenant Nom et Prénom.
+     * Appelé par le bouton "Retour à l'écran d'accueil" (Landing).
+     * FXML : onAction="#onBackToLandingClicked"
      */
     @FXML
-    private void onCreateClicked() {
-        clearCreateMessages();
-        if (accountService == null) { showCreateError("Service d'authentification non initialisé."); return; }
+    private void onBackToLandingClicked() {
+        try {
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/application/ui/view/LandingView.fxml")
+            );
+            Parent root = loader.load();
 
-        // Récupération des nouvelles valeurs
-        final String user = trim(createUsernameField.getText());
-        final String pass = createPasswordField.getText();
-        final String prenom = trim(createPrenomField.getText()); // <-- CORRIGÉ
-        final String nom = trim(createNomField.getText());       // <-- CORRIGÉ
-
-        runSafely(() -> { 
-            // Appel de la nouvelle signature de méthode
-            accountService.createAdmin(user, pass, nom, prenom); 
-            
-            Platform.runLater(() -> {
-                showCreateInfo("Compte administrateur créé. Vous pouvez vous connecter.");
-                toggleCreatePane(false); // Revient au login
-            });
-        }, ex -> showCreateError("Erreur: " + msg(ex)));
-    }
-
-    // ===================================================================
-    // COLLER LE RESTE DES MÉTHODES HELPERS ICI (non modifiées)
-    // ===================================================================
-    private void toggleCreatePane(boolean show) {
-        if (createPane != null && loginPane != null) {
-            createPane.setVisible(show); createPane.setManaged(show);
-            loginPane.setVisible(!show); loginPane.setManaged(!show);
-            if (show) {
-                clearCreateMessages();
-                if (createUsernameField != null && isBlank(createUsernameField.getText())) createUsernameField.requestFocus();
-            } else {
-                clearMessages();
-                if (usernameField != null && isBlank(usernameField.getText())) usernameField.requestFocus();
+            // Injection légère du service + navigator dans le contrôleur de la Landing
+            Object controller = loader.getController();
+            if (controller != null) {
+                // setAccountService(AccountService)
+                if (accountService != null) {
+                    try {
+                        Method m = controller.getClass()
+                                .getMethod("setAccountService", AccountService.class);
+                        m.invoke(controller, accountService);
+                    } catch (NoSuchMethodException ignored) {
+                        // la Landing ne gère peut-être pas l'AccountService, ce n'est pas grave
+                    }
+                }
+                // setNavigator(Navigator)
+                if (navigator != null) {
+                    try {
+                        Method m = controller.getClass()
+                                .getMethod("setNavigator", Navigator.class);
+                        m.invoke(controller, navigator);
+                    } catch (NoSuchMethodException ignored) {
+                        // la Landing ne gère peut-être pas le Navigator, ce n'est pas grave
+                    }
+                }
             }
+
+            // On remplace la scène actuelle par la Landing
+            Stage stage = (Stage) loginPane.getScene().getWindow();
+            Scene scene = new Scene(root,
+                    stage.getScene().getWidth(),
+                    stage.getScene().getHeight());
+            stage.setScene(scene);
+            stage.centerOnScreen();
+        } catch (IOException e) {
+            e.printStackTrace();
+            showError("Impossible de revenir à l'accueil : " + e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            showError("Erreur inattendue lors du retour à l'accueil.");
         }
     }
-    private void detectFirstRunSafely() {
-        if (accountService == null) return;
-        runSafely(() -> {
-            long users = accountService.countUsers();
-            boolean firstRun = (users == 0);
-            Platform.runLater(() -> toggleCreatePane(firstRun));
-        }, ex -> showError("Erreur de détection: " + msg(ex)));
-    }
-    @FXML private void onLoginClicked() {
-        clearMessages();
-        if (accountService == null) { showError("Service d'authentification non initialisé."); return; }
-        final String user = trim(usernameField.getText());
-        final String pass = passwordField.getText();
-        runSafely(() -> {
-            var result = accountService.login(user, pass);
-            Platform.runLater(() -> {
-                if (!result.success()) showError(result.message());
-                else accountService.navigateToMainAfterLogin(result);
-            });
-        }, ex -> showError("Erreur: " + msg(ex)));
-    }
+
+    // ===================================================================
+    // Helpers UI / Async
+    // ===================================================================
+
     private void runSafely(Runnable operation, Consumer<Throwable> errorHandler) {
-        Platform.runLater(() -> loading.set(true)); 
-        CompletableFuture.runAsync(operation)
+        Platform.runLater(() -> loading.set(true));
+        CompletableFuture
+                .runAsync(operation)
                 .whenComplete((result, exception) -> {
                     Platform.runLater(() -> {
-                        if (exception != null) errorHandler.accept(exception);
+                        if (exception != null) {
+                            errorHandler.accept(exception);
+                        }
                         loading.set(false);
                     });
                 });
     }
-    private void clearMessages() { if (errorLabel != null) { errorLabel.setVisible(false); errorLabel.setText(""); } }
-    private void showError(String txt) { if (errorLabel != null) { errorLabel.setText(txt); errorLabel.setVisible(true); errorLabel.setManaged(true); } }
-    private void clearCreateMessages() { if (createInfoLabel != null) { createInfoLabel.setVisible(false); createInfoLabel.setText(""); } if (createErrorLabel != null) { createErrorLabel.setVisible(false); createErrorLabel.setText(""); } }
-    private void showCreateInfo(String txt) { if (createInfoLabel != null) { createInfoLabel.setText(txt); createInfoLabel.setVisible(true); createInfoLabel.setManaged(true); } }
-    private void showCreateError(String txt) { if (createErrorLabel != null) { createErrorLabel.setText(txt); createErrorLabel.setVisible(true); createErrorLabel.setManaged(true); } }
-    private static String msg(Throwable t) { if (t == null) return "Erreur inconnue"; Throwable cause = (t instanceof java.util.concurrent.CompletionException && t.getCause() != null) ? t.getCause() : t; return (cause.getMessage() != null && !cause.getMessage().isBlank()) ? cause.getMessage() : cause.toString(); }
-    private static boolean isBlank(String s) { return s == null || s.isBlank(); }
-    private static String trim(String s) { return s == null ? "" : s.trim(); }
-    // ===================================================================
+
+    // --- Messages / erreurs ---
+
+    private void clearMessages() {
+        if (errorLabel != null) {
+            errorLabel.setVisible(false);
+            errorLabel.setManaged(false);
+            errorLabel.setText("");
+        }
+    }
+
+    private void showError(String txt) {
+        if (errorLabel != null) {
+            errorLabel.setText(txt);
+            errorLabel.setVisible(true);
+            errorLabel.setManaged(true);
+        }
+    }
+
+    // --- Utils ---
+
+    private static String msg(Throwable t) {
+        if (t == null) return "Erreur inconnue";
+        Throwable cause = (t instanceof java.util.concurrent.CompletionException && t.getCause() != null)
+                ? t.getCause()
+                : t;
+        return (cause.getMessage() != null && !cause.getMessage().isBlank())
+                ? cause.getMessage()
+                : cause.toString();
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
+    }
+
+    private static String trim(String s) {
+        return (s == null) ? "" : s.trim();
+    }
 }

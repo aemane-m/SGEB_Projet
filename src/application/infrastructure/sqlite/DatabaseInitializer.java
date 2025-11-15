@@ -5,19 +5,19 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Initialise le schéma SQLite du SGEB (Simplifié : Admin-Uniquement).
+ * Initialise le schéma SQLite du SGEB.
  *
- * <p>Tables :</p>
- * <ul>
- * <li>PERSONNE(personne_id, email, password_hash, nom, prenom, actif, isAdmin, created_at)</li>
- * <li>DOCUMENT(...)</li>
- * <li>EMPRUNT(...)</li>
- * <li>PENALITE(...)</li>
- * </ul>
+ * CORRIGÉ :
+ * - Table PERSONNE alignée avec AccountServiceSqlite :
+ *   - password_hash NOT NULL
+ *   - status TEXT NOT NULL DEFAULT 'ACTIVE'
+ *   - password_must_change INTEGER NOT NULL DEFAULT 0
+ * - Table PENALITE compatible avec SqlitePenaliteRepository.
  */
 public final class DatabaseInitializer {
 
     private DatabaseInitializer() {
+        // utilitaire
     }
 
     public static void initialize() {
@@ -28,32 +28,29 @@ public final class DatabaseInitializer {
                 // Toujours activer les contraintes FK
                 st.execute("PRAGMA foreign_keys = ON;");
 
-                // =================== NETTOYAGE (Ancien schéma) ===================
-                // On supprime les anciennes tables de rôles
-                st.execute("DROP TABLE IF EXISTS PERSONNE_ROLE;");
-                st.execute("DROP TABLE IF EXISTS ROLE;");
-
-                // =================== PERSONNE (Simplifié) ===================
-                // On s'assure de recréer la table PERSONNE si elle a l'ancien format
-                // (Note : c'est destructif, mais nécessaire pour le changement de schéma)
-                 //st.execute("DROP TABLE IF EXISTS PERSONNE;"); // Décommentez si la table existe déjà
-
+                // =================== PERSONNE (Corrigé) ===================
                 st.execute("""
                     CREATE TABLE IF NOT EXISTS PERSONNE (
-                        personne_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-                        email         TEXT    NOT NULL UNIQUE,
-                        password_hash TEXT,
-                        nom           TEXT    NOT NULL,
-                        prenom        TEXT    NOT NULL,
-                        actif         INTEGER NOT NULL DEFAULT 1,
-                        isAdmin       INTEGER NOT NULL DEFAULT 0,
-                        created_at    TEXT    NOT NULL,
-                        telephone     INTEGER
+                        personne_id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                        email                TEXT    NOT NULL UNIQUE,
+                        password_hash        TEXT    NOT NULL,
+                        nom                  TEXT    NOT NULL,
+                        prenom               TEXT    NOT NULL,
+                        actif                INTEGER NOT NULL DEFAULT 1,
+                        isAdmin              INTEGER NOT NULL DEFAULT 0,
+                        created_at           TEXT    NOT NULL,
+                        telephone            TEXT,
+                        
+                        -- Statut du compte : ACTIVE, PENDING, SUSPENDED, DISABLED, etc.
+                        status               TEXT    NOT NULL DEFAULT 'ACTIVE',
+                        
+                        -- Flag pour forcer le changement de mot de passe à la prochaine connexion
+                        password_must_change INTEGER NOT NULL DEFAULT 0
                     );
                 """);
-                
-                st.execute("CREATE INDEX IF NOT EXISTS idx_personne_email ON PERSONNE(email);");
-                // SUPPRIMÉ : Index pour 'ROLE'
+
+                st.execute("CREATE INDEX IF NOT EXISTS idx_personne_email  ON PERSONNE(email);");
+                st.execute("CREATE INDEX IF NOT EXISTS idx_personne_status ON PERSONNE(status);");
 
                 // =================== DOCUMENT (Inchangé) ===================
                 st.execute("""
@@ -78,14 +75,9 @@ public final class DatabaseInitializer {
                         cover_updated_at  TEXT
                     );
                 """);
-
                 st.execute("CREATE INDEX IF NOT EXISTS idx_document_dtype ON DOCUMENT(dtype);");
-                st.execute("CREATE INDEX IF NOT EXISTS idx_document_titre ON DOCUMENT(titre);");
-                // ... (autres index inchangés)
 
-                // =================== EMPRUNT (Inchangé) ===================
-                // Cette table référence 'PERSONNE' pour 'emprunteur_id', 
-                // ce qui est correct, car les Adhérents sont dans PERSONNE.
+                // =================== EMPRUNT (Inchangé fonctionnellement) ===================
                 st.execute("""
                     CREATE TABLE IF NOT EXISTS EMPRUNT (
                         emprunt_id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,11 +92,10 @@ public final class DatabaseInitializer {
                             ON UPDATE CASCADE ON DELETE RESTRICT
                     );
                 """);
-                
-                st.execute("CREATE INDEX IF NOT EXISTS idx_emprunt_document ON EMPRUNT(document_id);");
+                st.execute("CREATE INDEX IF NOT EXISTS idx_emprunt_document   ON EMPRUNT(document_id);");
                 st.execute("CREATE INDEX IF NOT EXISTS idx_emprunt_emprunteur ON EMPRUNT(emprunteur_id);");
 
-                // =================== PENALITE (Inchangé) ===================
+                // =================== PENALITE (Corrigé mais compatible) ===================
                 st.execute("""
                     CREATE TABLE IF NOT EXISTS PENALITE (
                         penalite_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,19 +106,24 @@ public final class DatabaseInitializer {
                         date_debut  TEXT,
                         date_fin    TEXT,
                         description TEXT,
+                        
+                        -- Statut du workflow de paiement (non encore exploité par le domaine)
+                        -- Ex: ACTIVE, DEMANDE, REGLEE, ANNULEE
+                        status      TEXT NOT NULL DEFAULT 'ACTIVE',
+                        
                         FOREIGN KEY (adherent_id) REFERENCES PERSONNE(personne_id)
                             ON UPDATE CASCADE ON DELETE RESTRICT,
                         FOREIGN KEY (emprunt_id) REFERENCES EMPRUNT(emprunt_id)
                             ON UPDATE CASCADE ON DELETE CASCADE
                     );
                 """);
-                
                 st.execute("CREATE INDEX IF NOT EXISTS idx_penalite_adherent ON PENALITE(adherent_id);");
+                st.execute("CREATE INDEX IF NOT EXISTS idx_penalite_status   ON PENALITE(status);");
 
                 c.commit();
             } catch (SQLException ddlError) {
                 c.rollback();
-                throw ddlError; 
+                throw ddlError;
             } finally {
                 c.setAutoCommit(true);
             }
