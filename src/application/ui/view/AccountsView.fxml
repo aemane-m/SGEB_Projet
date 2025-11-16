@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.SVGPath?>
+
+<VBox spacing="16"
+      styleClass="dashboard-root"
+      stylesheets="@../css/style.css"
+      xmlns="http://javafx.com/javafx/21.0.8"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="application.ui.viewmodel.controller.AccountsController">
+
+    <padding>
+        <Insets top="20" right="48" bottom="28" left="48"/>
+    </padding>
+
+    <!-- Titre + actions globales -->
+    <HBox alignment="CENTER_LEFT" spacing="12">
+        <Label styleClass="title" text="Gestion des comptes"/>
+        <Region HBox.hgrow="ALWAYS"/>
+
+        <Button fx:id="btnRefresh" styleClass="btn, btn-secondary" text="Rafraîchir">
+            <graphic>
+                <StackPane styleClass="svg-icon-btn">
+                    <SVGPath content="M 12 4 C 7.581722 4 4 7.581722 4 12 C 4 16.418278 7.581722 20 12 20 C 16.418278 20 20 16.418278 20 12 C 20 9.46721 18.841584 7.185686 17.070312 5.570312 L 15.65625 6.984375 C 17.078437 8.270687 18 10.046914 18 12 C 18 15.313708 15.313708 18 12 18 C 8.6862915 18 6 15.313708 6 12 C 6 8.6862915 8.6862915 6 12 6 L 12 8 L 16 5 L 12 2 L 12 4 z"/>
+                </StackPane>
+            </graphic>
+        </Button>
+    </HBox>
+
+    <!-- Actions sur la sélection + état -->
+    <HBox alignment="CENTER_LEFT" spacing="10">
+        <Button fx:id="btnToggleStatus" styleClass="btn, btn-primary" text="Activer / Suspendre"/>
+
+        <Button fx:id="btnDelete" styleClass="btn, btn-secondary" text="Supprimer le compte">
+            <graphic>
+                <StackPane styleClass="svg-icon-btn">
+                    <SVGPath content="M 6 7 L 6 19 C 6 20.104569 6.8954305 21 8 21 L 16 21 C 17.104569 21 18 20.104569 18 19 L 18 7 L 16 7 L 16 19 L 8 19 L 8 7 L 6 7 z M 9 4 L 9 5 L 7 5 L 7 7 L 17 7 L 17 5 L 15 5 L 15 4 L 9 4 z"/>
+                </StackPane>
+            </graphic>
+        </Button>
+
+        <ProgressIndicator fx:id="progress"
+                           prefWidth="24"
+                           prefHeight="24"
+                           visible="false"
+                           managed="false"/>
+
+        <Region HBox.hgrow="ALWAYS"/>
+
+        <Label fx:id="errorLabel"
+               styleClass="error-message"
+               visible="false"
+               managed="false"
+               wrapText="true"/>
+    </HBox>
+
+    <!-- Table des comptes -->
+    <TableView fx:id="table" VBox.vgrow="ALWAYS" styleClass="table-view">
+        <columns>
+            <TableColumn fx:id="colEmail"
+                         text="Email"
+                         minWidth="220"
+                         prefWidth="250"/>
+            <TableColumn fx:id="colRole"
+                         text="Rôle"
+                         minWidth="90"
+                         prefWidth="100"/>
+            <TableColumn fx:id="colStatus"
+                         text="Statut"
+                         minWidth="100"
+                         prefWidth="120"/>
+            <TableColumn fx:id="colPwdMustChange"
+                         text="Changement obligatoire"
+                         minWidth="180"
+                         prefWidth="200"/>
+        </columns>
+
+        <columnResizePolicy>
+            <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+        </columnResizePolicy>
+
+        <placeholder>
+            <Label text="Aucun compte à afficher."/>
+        </placeholder>
+    </TableView>
+
+</VBox>

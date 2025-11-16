@@ -2,18 +2,13 @@ package application.ui.viewmodel.controller;
 
 import application.domain.service.AccountService;
 import application.domain.service.AccountService.UserSession;
+import application.ui.navigation.Navigator;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
 /**
  * Écran de changement de mot de passe imposé (première connexion).
- *
- * L'AccountService doit :
- * - être injecté via setAccountService(...)
- * - exposer une méthode :
- *     void changePasswordAndClearFlag(long userId, String rawPassword);
- *     // + éventuellement : navigator.goToDashboard(session) ou goToLanding(...)
  */
 public final class ChangePasswordController {
 
@@ -28,9 +23,15 @@ public final class ChangePasswordController {
 
     private AccountService accountService;
     private UserSession currentSession;
+    private Navigator navigator;   // <-- NEW
 
     public void setAccountService(AccountService accountService) {
         this.accountService = accountService;
+    }
+
+    // NEW : injection du Navigator
+    public void setNavigator(Navigator navigator) {
+        this.navigator = navigator;
     }
 
     /** Appelé par le Navigator après un login avec mot de passe à changer. */
@@ -69,21 +70,26 @@ public final class ChangePasswordController {
             showError("Les mots de passe ne correspondent pas.");
             return;
         }
+        if (pwd.length() < 8) {
+            showError("Le mot de passe doit contenir au moins 8 caractères.");
+            return;
+        }
 
         setBusy(true);
 
         new Thread(() -> {
             try {
-                // À implémenter dans AccountServiceSqlite :
-                // - changer le mot de passe
-                // - mettre mustChangePassword = false
-                // - éventuellement router vers le Shell (Dashboard / Mes emprunts).
                 accountService.changePasswordAndClearFlag(currentSession.userId(), pwd);
 
                 Platform.runLater(() -> {
-                    showSuccess("Mot de passe mis à jour. Redirection en cours...");
-                    // Si tu préfères router ici, tu peux appeler un callback sur l'AccountService
-                    // ou lui laisser faire la navigation lui-même dans changePasswordAndClearFlag.
+                    showSuccess("Mot de passe mis à jour, redirection en cours...");
+                    // Redirection immédiate vers le bon écran
+                    if (navigator != null) {
+                        navigator.goToDashboard(currentSession);
+                    } else {
+                        // fallback : fermer la fenêtre
+                        txtNewPassword.getScene().getWindow().hide();
+                    }
                 });
 
             } catch (Exception ex) {
@@ -98,7 +104,7 @@ public final class ChangePasswordController {
 
     @FXML
     private void onCancel() {
-        // Soit retour à l'écran de Login, soit fermeture pure et simple
+        // retour à l'écran de Login (ou fermeture)
         txtNewPassword.getScene().getWindow().hide();
     }
 

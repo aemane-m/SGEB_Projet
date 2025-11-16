@@ -20,8 +20,10 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 /**
- * Gère l'affichage du statut (pénalités) et ouvre un dialogue pour l'historique (emprunts).
- * Utilise AdherentStatusWrapper pour la TableView.
+ * Contrôleur de l'écran "Gestion des adhérents".
+ * - Liste avec statut (pénalités)
+ * - Ajout/édition via un dialog
+ * - Lors de la création, le ViewModel crée aussi un compte (ADMIN ou ADHERENT).
  */
 public class AdherentsController {
 
@@ -34,17 +36,16 @@ public class AdherentsController {
     @FXML private TableColumn<AdherentStatusWrapper, String> colStatut;
     @FXML private TableColumn<AdherentStatusWrapper, Void>   colAction;
 
-    @FXML private TextField        searchField;
-    @FXML private Button           btnAdd;
-    @FXML private Button           btnSearch;
-    @FXML private Button           btnRefresh;
+    @FXML private TextField         searchField;
+    @FXML private Button            btnAdd;
+    @FXML private Button            btnSearch;
+    @FXML private Button            btnRefresh;
     @FXML private ProgressIndicator progress;
     @FXML private Label             errorLabel;
 
     // --- ViewModel ---
     private AdherentsViewModel viewModel;
 
-    // --- Constructeurs / Injection ---
     public AdherentsController() {}
     public AdherentsController(AdherentsViewModel vm) { this.viewModel = vm; }
     public void setViewModel(AdherentsViewModel vm)   { this.viewModel = vm; }
@@ -67,31 +68,26 @@ public class AdherentsController {
     private void setupTableColumns() {
         table.setItems(viewModel.getItems());
 
-        // Colonnes simples via wrapper.getAdherent()
         colId.setCellValueFactory(cd -> new ReadOnlyStringWrapper(
-            cd.getValue().getAdherent().getId() == null
-                ? "—"
-                : String.valueOf(cd.getValue().getAdherent().getId())
+                cd.getValue().getAdherent().getId() == null
+                        ? "—"
+                        : String.valueOf(cd.getValue().getAdherent().getId())
         ));
         colNom.setCellValueFactory(cd -> new ReadOnlyStringWrapper(
-            safe(cd.getValue().getAdherent().getNom())
+                safe(cd.getValue().getAdherent().getNom())
         ));
         colPrenom.setCellValueFactory(cd -> new ReadOnlyStringWrapper(
-            safe(cd.getValue().getAdherent().getPrenom())
+                safe(cd.getValue().getAdherent().getPrenom())
         ));
         colEmail.setCellValueFactory(cd -> new ReadOnlyStringWrapper(
-            safe(cd.getValue().getAdherent().getEmail())
+                safe(cd.getValue().getAdherent().getEmail())
         ));
-
-        // Le statut est déjà calculé côté wrapper (binding direct)
         colStatut.setCellValueFactory(cellData -> cellData.getValue().statutProperty());
 
-        // Colonne actions (éditer, historique, supprimer)
         colAction.setCellFactory(col -> new ActionButtonCell());
     }
 
     private void setupTableInteractions() {
-        // Double-clic sur une ligne pour ouvrir le dialogue d'édition
         table.setRowFactory(tv -> {
             final TableRow<AdherentStatusWrapper> row = new TableRow<>();
             row.setOnMouseClicked(ev -> {
@@ -102,9 +98,8 @@ public class AdherentsController {
             return row;
         });
 
-        // Lier sélection Table <-> ViewModel
         table.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) ->
-            viewModel.setSelected(newSel)
+                viewModel.setSelected(newSel)
         );
 
         viewModel.selectedProperty().addListener((obs, oldVal, newVal) -> {
@@ -146,44 +141,64 @@ public class AdherentsController {
 
     private void showAddOrEditAdherentDialog(Adherent existing) {
         final Dialog<ButtonType> dlg = new Dialog<>();
-        dlg.setTitle(existing == null ? "Ajouter un adhérent" : "Modifier l'adhérent");
+        dlg.setTitle(existing == null ? "Ajouter un utilisateur" : "Modifier l'utilisateur");
         addTheme(dlg.getDialogPane());
 
-        if (existing == null) {
+        final boolean isCreating = (existing == null);
+        if (isCreating) {
             viewModel.createNew();
         } else {
             viewModel.edit(existing);
         }
 
-        dlg.getDialogPane().setContent(createAdherentFormPane(existing == null));
+        dlg.getDialogPane().setContent(createAdherentFormPane(isCreating));
 
         final ButtonType BTN_SAVE = new ButtonType(
-            existing == null ? "Enregistrer" : "Mettre à jour",
-            ButtonBar.ButtonData.OK_DONE
+                isCreating ? "Créer" : "Mettre à jour",
+                ButtonBar.ButtonData.OK_DONE
         );
         dlg.getDialogPane().getButtonTypes().addAll(BTN_SAVE, ButtonType.CANCEL);
         styleAsPrimary(dlg.getDialogPane(), BTN_SAVE);
 
         final Button btnSave = (Button) dlg.getDialogPane().lookupButton(BTN_SAVE);
-        btnSave.disableProperty().bind(
-            viewModel.formNomProperty().isEmpty()
-                .or(viewModel.formPrenomProperty().isEmpty())
-                .or(viewModel.formEmailProperty().isEmpty()) // TODO: ajouter validation email rigoureuse
-                .or(viewModel.loadingProperty())
-        );
+
+        if (isCreating) {
+            // En création : rôle + mot de passe obligatoires
+            btnSave.disableProperty().bind(
+                    viewModel.formNomProperty().isEmpty()
+                            .or(viewModel.formPrenomProperty().isEmpty())
+                            .or(viewModel.formEmailProperty().isEmpty())
+                            .or(viewModel.formRoleProperty().isEmpty())
+                            .or(viewModel.formPasswordProperty().length().lessThan(8))
+                            .or(viewModel.loadingProperty())
+            );
+        } else {
+            // En édition : uniquement nom/prénom/email
+            btnSave.disableProperty().bind(
+                    viewModel.formNomProperty().isEmpty()
+                            .or(viewModel.formPrenomProperty().isEmpty())
+                            .or(viewModel.formEmailProperty().isEmpty())
+                            .or(viewModel.loadingProperty())
+            );
+        }
 
         final Optional<ButtonType> res = dlg.showAndWait();
         if (res.isPresent() && res.get() == BTN_SAVE) {
             viewModel.saveCurrent();
         } else {
-            // Annulé : recharger l'édition avec l'adhérent sélectionné (ou vide)
+            // Annulé : recharger la sélection actuelle
             viewModel.edit(viewModel.getSelectedAdherent());
         }
     }
 
+    /**
+     * Crée le formulaire (GridPane) utilisé dans le dialog.
+     * - En création : ajoute un choix de rôle + mot de passe temporaire.
+     * - En édition : seulement les infos de personne.
+     */
     private Node createAdherentFormPane(boolean isCreating) {
         final TitledPane pane = new TitledPane();
-        pane.setText(isCreating ? "Nouvel adhérent" : "Éditer l'adhérent");
+        pane.setText(isCreating ? "Nouvel utilisateur" : "Éditer l'utilisateur");
         pane.setExpanded(true);
         pane.setCollapsible(false);
         pane.getStyleClass().addAll("titled-pane", "card-like");
@@ -208,47 +223,54 @@ public class AdherentsController {
         tfPrenom.textProperty().bindBidirectional(viewModel.formPrenomProperty());
         tfEmail.textProperty().bindBidirectional(viewModel.formEmailProperty());
         tfTelephone.textProperty().bindBidirectional(viewModel.formTelephoneProperty());
+        tfTelephone.setPromptText(AdherentsViewModel.getTelephoneHint());
 
         int rowIndex = 0;
-        form.add(new Label("Nom:"),        0, rowIndex);
-        form.add(tfNom,                    1, rowIndex++);
+        form.add(new Label("Nom :"),        0, rowIndex);
+        form.add(tfNom,                     1, rowIndex++);
 
-        form.add(new Label("Prénom:"),     0, rowIndex);
-        form.add(tfPrenom,                 1, rowIndex++);
+        form.add(new Label("Prénom :"),     0, rowIndex);
+        form.add(tfPrenom,                  1, rowIndex++);
 
-        form.add(new Label("Email:"),      0, rowIndex);
-        form.add(tfEmail,                  1, rowIndex++);
+        form.add(new Label("Email :"),      0, rowIndex);
+        form.add(tfEmail,                   1, rowIndex++);
 
-        form.add(new Label("Téléphone:"),  0, rowIndex);
-        form.add(tfTelephone,              1, rowIndex++);
+        form.add(new Label("Téléphone :"),  0, rowIndex);
+        form.add(tfTelephone,               1, rowIndex++);
+
+        if (isCreating) {
+            // Choix du rôle
+            final ComboBox<String> cbRole = new ComboBox<>();
+            cbRole.getItems().addAll("ADHERENT", "ADMIN");
+            cbRole.setPromptText("Choisir un rôle");
+            cbRole.valueProperty().bindBidirectional(viewModel.formRoleProperty());
+
+            form.add(new Label("Rôle :"),   0, rowIndex);
+            form.add(cbRole,                1, rowIndex++);
+
+            // Mot de passe temporaire
+            final PasswordField pfPassword = new PasswordField();
+            pfPassword.setPromptText("Mot de passe temporaire (min. 8 caractères)");
+            pfPassword.textProperty().bindBidirectional(viewModel.formPasswordProperty());
+
+            form.add(new Label("Mot de passe temp. :"), 0, rowIndex);
+            form.add(pfPassword,                        1, rowIndex++);
+
+            Label hint = new Label(
+                    "Ce mot de passe est temporaire. L'utilisateur devra le modifier lors de sa première connexion."
+            );
+            hint.getStyleClass().add("hint-label");
+            hint.setWrapText(true);
+
+            form.add(new Label(""), 0, rowIndex);
+            form.add(hint,          1, rowIndex++);
+        }
 
         pane.setContent(form);
         return pane;
     }
 
-    private void confirmAndDeleteAdherent(Adherent adherent) {
-        if (adherent == null) {
-            viewModel.reportError("Impossible de supprimer : aucun adhérent fourni.");
-            return;
-        }
-
-        final Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-        alert.setTitle("Confirmer la suppression");
-        alert.setHeaderText("Supprimer « " + safe(adherent.getNomComplet()) + " » ?");
-        alert.setContentText(
-            "Cette action est irréversible. La suppression échouera si cet adhérent a des emprunts en cours."
-        );
-        addTheme(alert.getDialogPane());
-        styleAsDanger(alert.getDialogPane(), ButtonType.OK);
-
-        final Optional<ButtonType> res = alert.showAndWait();
-        if (res.isPresent() && res.get() == ButtonType.OK) {
-            viewModel.delete(adherent);
-        }
-    }
-
-
- // --- Dialogue d'Historique ---
+    // --- Dialogue d'Historique ---
     private void showHistoriqueDialog(Adherent adherent) {
         Dialog<Void> dlg = new Dialog<>();
         dlg.setTitle("Historique des emprunts");
@@ -258,24 +280,22 @@ public class AdherentsController {
         TableView<Emprunt> historiqueTable = new TableView<>();
         historiqueTable.setItems(viewModel.getSelectedAdherentHistorique());
 
-        // --- CORRECTION DU TODO ---
         TableColumn<Emprunt, String> colDoc = new TableColumn<>("Document");
         colDoc.setCellValueFactory(cd -> {
-            // Le repository a peuplé le titre dans le proxy
             String titre = cd.getValue().getDocument().getTitre();
             return new ReadOnlyStringWrapper(safe(titre));
         });
-        
+
         TableColumn<Emprunt, String> colDateEmp = new TableColumn<>("Date Emprunt");
         colDateEmp.setCellValueFactory(cd -> new ReadOnlyStringWrapper(
-            cd.getValue().getDateEmprunt().toString()
+                cd.getValue().getDateEmprunt().toString()
         ));
-        
+
         TableColumn<Emprunt, String> colDateRetPrev = new TableColumn<>("Retour Prévu");
         colDateRetPrev.setCellValueFactory(cd -> new ReadOnlyStringWrapper(
-            cd.getValue().getDateRetourPrevue().toString()
+                cd.getValue().getDateRetourPrevue().toString()
         ));
-        
+
         TableColumn<Emprunt, String> colDateRetEff = new TableColumn<>("Retour Effectif");
         colDateRetEff.setCellValueFactory(cd -> {
             LocalDate date = cd.getValue().getDateRetourEffective();
@@ -283,22 +303,22 @@ public class AdherentsController {
         });
 
         historiqueTable.getColumns().setAll(colDoc, colDateEmp, colDateRetPrev, colDateRetEff);
-        historiqueTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS); // JavaFX 21+
+        historiqueTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
         historiqueTable.setPrefHeight(300);
         historiqueTable.setPrefWidth(550);
         historiqueTable.setPlaceholder(new Label("Aucun emprunt dans l'historique."));
-        
+
         VBox content = new VBox(10, historiqueTable);
         content.setPadding(new Insets(10));
-        
+
         dlg.getDialogPane().setContent(content);
         dlg.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-        
-        // Charge les données
+
         viewModel.loadHistoriqueFor(adherent);
-        
+
         dlg.showAndWait();
     }
+
     // ========================================================================
     // Helpers UI (thème, styles, utils)
     // ========================================================================
@@ -386,6 +406,27 @@ public class AdherentsController {
         protected void updateItem(Void item, boolean empty) {
             super.updateItem(item, empty);
             setGraphic(empty || getWrapper() == null ? null : pane);
+        }
+    }
+
+    private void confirmAndDeleteAdherent(Adherent adherent) {
+        if (adherent == null) {
+            viewModel.reportError("Impossible de supprimer : aucun adhérent fourni.");
+            return;
+        }
+
+        final Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Confirmer la suppression");
+        alert.setHeaderText("Supprimer « " + safe(adherent.getNomComplet()) + " » ?");
+        alert.setContentText(
+                "Cette action est irréversible. La suppression échouera si cet adhérent a des emprunts en cours."
+        );
+        addTheme(alert.getDialogPane());
+        styleAsDanger(alert.getDialogPane(), ButtonType.OK);
+
+        final Optional<ButtonType> res = alert.showAndWait();
+        if (res.isPresent() && res.get() == ButtonType.OK) {
+            viewModel.delete(adherent);
         }
     }
 }

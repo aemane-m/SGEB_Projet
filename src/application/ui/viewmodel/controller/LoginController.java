@@ -112,12 +112,21 @@ public class LoginController {
         final String email = trim(usernameField.getText());
         final String pass  = passwordField.getText();
 
+        // On évite de lancer une requête vide si jamais le binding a été cassé
+        if (isBlank(email) || isBlank(pass)) {
+            showError("Veuillez renseigner votre email et votre mot de passe.");
+            return;
+        }
+
         runSafely(() -> {
+            // exécution côté worker thread
             AccountService.LoginResult result = accountService.login(email, pass);
 
+            // retour sur le thread JavaFX pour mettre à jour l'UI
             Platform.runLater(() -> {
                 if (!result.success()) {
                     showError(result.message());
+                    passwordField.clear();
                     return;
                 }
 
@@ -127,14 +136,24 @@ public class LoginController {
                     return;
                 }
 
-                // (optionnel) gestion du mot de passe à changer :
-                // if (session.passwordMustChange()) { ... }
+                // ⚠️ Nouveau : mot de passe à changer ?
+                if (session.passwordMustChange()) {
+                    if (navigator != null) {
+                        navigator.goToChangePassword(session);
+                    } else {
+                        System.err.println("Navigator non injecté ; impossible d'ouvrir l'écran de changement de mot de passe.");
+                        showError("Erreur technique : navigation indisponible.");
+                    }
+                    return;
+                }
 
+                // Chemin normal : on ouvre le Shell + Dashboard
                 if (navigator != null) {
-                    navigator.showShell();             // ouvre MainShell.fxml
+                    navigator.showShell();             // ouvre MainShell.fxml si besoin
                     navigator.goToDashboard(session);  // dashboard + contexte utilisateur
                 } else {
                     System.err.println("Navigator non injecté dans LoginController ; impossible de naviguer vers le Dashboard.");
+                    showError("Erreur technique : navigation indisponible.");
                 }
             });
         }, ex -> showError("Erreur : " + msg(ex)));

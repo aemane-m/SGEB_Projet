@@ -11,27 +11,30 @@ import application.domain.service.DashboardService;
 import application.domain.service.EmpruntService;
 import application.domain.service.PenaliteService;
 import application.ui.navigation.Navigator;
+import application.ui.viewmodel.AccountsViewModel;
 import application.ui.viewmodel.AdherentsViewModel;
 import application.ui.viewmodel.CatalogueViewModel;
 import application.ui.viewmodel.DashboardViewModel;
 import application.ui.viewmodel.EmpruntsViewModel;
-import application.ui.viewmodel.PenalitesViewModel;
 import application.ui.viewmodel.MesEmpruntsViewModel;
 import application.ui.viewmodel.MesPenalitesViewModel;
+import application.ui.viewmodel.PenalitesViewModel;
+import application.ui.viewmodel.controller.AccountsController;
 import application.ui.viewmodel.controller.AdherentsController;
 import application.ui.viewmodel.controller.CatalogueController;
+import application.ui.viewmodel.controller.ChangePasswordController;
 import application.ui.viewmodel.controller.DashboardController;
 import application.ui.viewmodel.controller.EmpruntsController;
-import application.ui.viewmodel.controller.PenalitesController;
+import application.ui.viewmodel.controller.MainShellController;
 import application.ui.viewmodel.controller.MesEmpruntsController;
 import application.ui.viewmodel.controller.MesPenalitesController;
-import application.ui.viewmodel.controller.MainShellController;
+import application.ui.viewmodel.controller.PenalitesController;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-import java.lang.reflect.Method;        // NEW
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Objects;
 
@@ -42,6 +45,7 @@ import java.util.Objects;
  * - stocke une {@link AccountService.UserSession}
  * - propage username/role vers le Shell
  * - gère la vue Pénalités + les vues adhérent ("Mes emprunts" / "Mes pénalités")
+ * - gère la vue de gestion des comptes (ADMIN uniquement)
  */
 public final class FxNavigator implements Navigator {
 
@@ -68,7 +72,7 @@ public final class FxNavigator implements Navigator {
     private final PenaliteRepository penaliteRepository;
     private final BookInfoProvider bookInfoProvider;
 
-    // NEW : référence à l'AccountService pour gérer login / changement mdp
+    // Référence à l'AccountService pour login / création comptes / changement mdp
     private final AccountService accountService;
 
     public FxNavigator(Stage stage,
@@ -81,8 +85,7 @@ public final class FxNavigator implements Navigator {
                        EmpruntRepository empruntRepository,
                        PenaliteRepository penaliteRepository,
                        BookInfoProvider bookInfoProvider,
-                       AccountService accountService       // NEW
-    ) {
+                       AccountService accountService) {
 
         this.stage = Objects.requireNonNull(stage, "stage");
         this.dashboardService = Objects.requireNonNull(dashboardService, "dashboardService");
@@ -94,7 +97,7 @@ public final class FxNavigator implements Navigator {
         this.empruntRepository = Objects.requireNonNull(empruntRepository, "empruntRepository");
         this.penaliteRepository = Objects.requireNonNull(penaliteRepository, "penaliteRepository");
         this.bookInfoProvider = Objects.requireNonNull(bookInfoProvider, "bookInfoProvider");
-        this.accountService = Objects.requireNonNull(accountService, "accountService"); // NEW
+        this.accountService = Objects.requireNonNull(accountService, "accountService");
 
         this.stage.setMinWidth(MIN_W);
         this.stage.setMinHeight(MIN_H);
@@ -195,6 +198,12 @@ public final class FxNavigator implements Navigator {
     }
 
     @Override
+    public void goToAccounts() {
+        showShell();
+        setCenter("/application/ui/view/AccountsView.fxml");
+    }
+
+    @Override
     public void goToMesEmprunts() {
         showShell();
         setCenter("/application/ui/view/MesEmpruntsView.fxml");
@@ -217,7 +226,7 @@ public final class FxNavigator implements Navigator {
             FXMLLoader loader = new FXMLLoader(fxml);
             Parent root = loader.load();
 
-            // NEW : injection de AccountService + Navigator dans LoginController
+            // Injection AccountService + Navigator dans LoginController (et autres)
             injectControllerDependencies(loader);
 
             Scene scene = new Scene(root, MIN_W, MIN_H);
@@ -232,8 +241,46 @@ public final class FxNavigator implements Navigator {
 
     @Override
     public void goToRegister() {
-        // Pour l’instant, on peut réutiliser la même vue que Login
+        // Pour l’instant, on peut garder cette implémentation
+        // ou plus tard charger une vraie SignupView publique.
         goToLogin();
+    }
+
+    @Override
+    public void goToChangePassword(AccountService.UserSession session) {
+        Objects.requireNonNull(session, "session ne peut pas être null pour goToChangePassword");
+
+        try {
+            URL fxml = getClass().getResource("/application/ui/view/ChangePasswordView.fxml");
+            if (fxml == null) {
+                throw new IllegalStateException("FXML introuvable : /application/ui/view/ChangePasswordView.fxml");
+            }
+
+            FXMLLoader loader = new FXMLLoader(fxml);
+            Parent root = loader.load();
+
+            ChangePasswordController controller = loader.getController();
+            if (controller == null) {
+                throw new IllegalStateException("Controller ChangePasswordController non résolu.");
+            }
+
+            // Injection directe des dépendances
+            controller.setAccountService(accountService);
+            controller.setNavigator(this);
+            controller.setSession(session);
+
+            // On peut utiliser une fenêtre un peu plus petite si tu veux,
+            // mais pour rester simple on réutilise les dimensions "globales".
+            Scene scene = new Scene(root, MIN_W, MIN_H);
+            stage.setScene(scene);
+            stage.setTitle("SGEB – Changement de mot de passe");
+            stage.centerOnScreen();
+            stage.show();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Impossible de charger ChangePasswordView.fxml : " + e.getMessage(), e);
+        }
     }
 
     // =====================================================================
@@ -244,7 +291,7 @@ public final class FxNavigator implements Navigator {
         if (shell == null) return;
 
         if (currentSession != null) {
-            String username = currentSession.email(); // ou displayName
+            String username = currentSession.email();
             String roleName = (currentSession.role() != null)
                     ? currentSession.role().getName()
                     : null;
@@ -256,7 +303,7 @@ public final class FxNavigator implements Navigator {
     }
 
     // =====================================================================
-    // Chargement central (Controller Factory)
+    // Chargement central (Controller Factory pour les vues du Shell)
     // =====================================================================
 
     private void setCenter(String fxmlPath) {
@@ -272,7 +319,7 @@ public final class FxNavigator implements Navigator {
 
             FXMLLoader loader = new FXMLLoader(fxml);
 
-            // Controller Factory (injection de dépendances dans les contrôleurs)
+            // Controller Factory (injection de dépendances dans les contrôleurs du Shell)
             loader.setControllerFactory(type -> {
                 try {
                     if (type == DashboardController.class) {
@@ -295,7 +342,7 @@ public final class FxNavigator implements Navigator {
                     } else if (type == CatalogueController.class) {
                         var vm = new CatalogueViewModel(catalogueService, bookInfoProvider);
 
-                        // 🔐 Admin = catalogue complet, Adhérent = lecture seule
+                        // Admin = catalogue complet, Adhérent = lecture seule
                         boolean adminMode = currentSession != null
                                 && currentSession.role() != null
                                 && "ADMIN".equalsIgnoreCase(currentSession.role().getName());
@@ -303,10 +350,12 @@ public final class FxNavigator implements Navigator {
                         return new CatalogueController(vm, adminMode);
 
                     } else if (type == AdherentsController.class) {
+                        // On passe aussi accountService au ViewModel
                         var vm = new AdherentsViewModel(
                                 adherentRepository,
                                 empruntRepository,
-                                penaliteRepository
+                                penaliteRepository,
+                                accountService
                         );
                         return new AdherentsController(vm);
 
@@ -345,6 +394,11 @@ public final class FxNavigator implements Navigator {
                                 adherentId
                         );
                         return new MesPenalitesController(vm);
+
+                    } else if (type == AccountsController.class) {
+                        long actingUserId = (currentSession != null) ? currentSession.userId() : -1L;
+                        var vm = new AccountsViewModel(accountService, actingUserId);
+                        return new AccountsController(vm);
                     }
 
                     // Contrôleurs sans dépendances explicites
@@ -367,7 +421,7 @@ public final class FxNavigator implements Navigator {
     }
 
     // =====================================================================
-    // Injection générique pour Login / écrans hors Shell
+    // Injection générique pour Login / autres écrans hors Shell
     // =====================================================================
 
     /**
@@ -400,6 +454,41 @@ public final class FxNavigator implements Navigator {
         } catch (Exception e) {
             throw new RuntimeException("Injection Navigator impossible dans "
                     + controller.getClass().getName() + " : " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void logout() {
+        // On oublie la session courante
+        this.currentSession = null;
+
+        try {
+            URL fxml = getClass().getResource("/application/ui/view/LandingView.fxml");
+            if (fxml == null) {
+                throw new IllegalStateException("FXML introuvable : /application/ui/view/LandingView.fxml");
+            }
+
+            FXMLLoader loader = new FXMLLoader(fxml);
+            Parent root = loader.load();
+
+            // Injection AccountService + Navigator dans le contrôleur de la landing
+            injectControllerDependencies(loader);
+
+            // On considère la landing comme un nouvel écran "hors shell"
+            Scene scene = new Scene(root, 900, 600);
+            stage.setTitle("SGEB – Bibliothèque");
+            stage.setScene(scene);
+            stage.setResizable(true);
+            stage.centerOnScreen();
+            stage.show();
+
+            // Le Shell n'est plus affiché
+            this.shell = null;
+            this.shellShown = false;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Impossible de charger LandingView.fxml : " + e.getMessage(), e);
         }
     }
 }

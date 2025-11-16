@@ -7,43 +7,108 @@
 <BorderPane fx:id="root"
             xmlns="http://javafx.com/javafx/23.0.1"
             xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="application.ui.viewmodel.controller.LandingController">
+            fx:controller="application.ui.viewmodel.controller.LandingController"
+            stylesheets="@../css/style.css"
+            styleClass="dashboard-root">
 
     <center>
-        <HBox spacing="24" BorderPane.alignment="CENTER">
+        <HBox spacing="32" BorderPane.alignment="CENTER" alignment="CENTER">
             <padding>
-                <Insets top="24" right="24" bottom="24" left="24"/>
+                <Insets top="40" right="48" bottom="40" left="48"/>
             </padding>
             <children>
 
-                <!-- Bloc gauche : présentation du projet / énoncé -->
-                <VBox spacing="16" HBox.hgrow="ALWAYS">
+                <!-- ========= BLOC GAUCHE : HERO ========= -->
+                <VBox spacing="18" HBox.hgrow="ALWAYS" alignment="CENTER_LEFT">
+                    <!-- Titre principal -->
                     <Label text="SGEB — Système de Gestion des Emprunts de Bibliothèque"
-                           style="-fx-font-size: 20px; -fx-font-weight: bold;"/>
+                           styleClass="title"/>
 
-                    <TextArea fx:id="lblDetails"
-                              editable="false"
-                              wrapText="true"
-                              prefRowCount="10"
-                              style="-fx-font-family: 'Monospaced';"/>
+                    <!-- Sous-titre / pitch -->
+                    <Label text="Une application JavaFX complète pour gérer documents, adhérents, emprunts et pénalités d’une bibliothèque universitaire."
+                           wrapText="true"
+                           maxWidth="520"
+                           styleClass="subtitle"/>
+
+                    <!-- Section : Pour qui ? -->
+                    <VBox spacing="8">
+                        <Label text="Pour qui ?" styleClass="section-title"/>
+
+                        <Label wrapText="true"
+                               maxWidth="520"
+                               text="• Administrateur : gère le catalogue, les adhérents, les emprunts, les retours, les retards et les pénalités, et suit l’activité via un tableau de bord riche en KPI."
+                               styleClass="subtitle"/>
+
+                        <Label wrapText="true"
+                               maxWidth="520"
+                               text="• Adhérent : consulte le catalogue, emprunte des documents, suit ses emprunts en cours et visualise ses pénalités."
+                               styleClass="subtitle"/>
+                    </VBox>
+
+                    <!-- Section : Fonctionnalités clés -->
+                    <VBox spacing="8">
+                        <Label text="Fonctionnalités principales" styleClass="section-title"/>
+
+                        <Label wrapText="true"
+                               maxWidth="520"
+                               text="• Tableau de bord : indicateurs sur les documents, emprunts, retards, pénalités et adhérents actifs."
+                               styleClass="subtitle"/>
+
+                        <Label wrapText="true"
+                               maxWidth="520"
+                               text="• Catalogue : gestion des livres et supports, recherche par titre / auteur / genre, jaquettes locales."
+                               styleClass="subtitle"/>
+
+                        <Label wrapText="true"
+                               maxWidth="520"
+                               text="• Emprunts &amp; retards : suivi des emprunts en cours, détection des retards, génération des pénalités."
+                               styleClass="subtitle"/>
+
+                        <Label wrapText="true"
+                               maxWidth="520"
+                               text="• Comptes &amp; rôles : séparation nette ADMIN / ADHERENT, statut du compte, mot de passe à changer."
+                               styleClass="subtitle"/>
+                    </VBox>
+
+                    <!-- Section projet -->
+                    <VBox spacing="6">
+                        <Label text="Projet universitaire"
+                               styleClass="section-title"/>
+
+                        <Label wrapText="true"
+                               maxWidth="520"
+                               text="SGEB est structuré en couches (domaine, services, ports/repositories, adaptateurs SQLite, UI JavaFX) pour illustrer de bonnes pratiques d’architecture applicative."
+                               styleClass="muted"/>
+                    </VBox>
                 </VBox>
 
-                <!-- Bloc droit : actions -->
-                <VBox spacing="12" alignment="CENTER_RIGHT">
+                <!-- ========= BLOC DROIT : CTA / ACTIONS ========= -->
+                <VBox spacing="12" alignment="CENTER" prefWidth="260">
+                    <Label text="Commencer" styleClass="section-title"/>
+
                     <Button fx:id="btnLogin"
                             text="Se connecter"
                             onAction="#onLoginClicked"
-                            maxWidth="Infinity"/>
+                            maxWidth="Infinity"
+                            styleClass="btn-primary"/>
 
                     <Button fx:id="btnRegister"
                             text="Créer un compte adhérent"
                             onAction="#onRegisterClicked"
-                            maxWidth="Infinity"/>
+                            maxWidth="Infinity"
+                            styleClass="btn-secondary"/>
+
+                    <Separator/>
 
                     <Button fx:id="btnGuestCatalogue"
-                            text="Consulter le catalogue"
+                            text="Consulter le catalogue (invité)"
                             onAction="#onGuestCatalogueClicked"
-                            maxWidth="Infinity"/>
+                            maxWidth="Infinity"
+                            styleClass="btn-link"/>
+
+                    <Label text="Mode invité : catalogue en lecture seule."
+                           wrapText="true"
+                           styleClass="muted"/>
                 </VBox>
 
             </children>

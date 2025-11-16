@@ -10,6 +10,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -119,8 +121,7 @@ public final class AccountServiceSqlite implements AccountService {
 
     @Override
     public void createAdherentPublic(String email, String rawPassword, String nom, String prenom) {
-        // Pour un TP : on le met directement en ACTIVE.
-        // En prod-like, on pourrait choisir "PENDING_EMAIL_VERIFICATION".
+        // L'adhérent est créé avec un mot de passe temporaire, il doit le changer.
         createAccountInternal(
                 email,
                 rawPassword,
@@ -128,7 +129,7 @@ public final class AccountServiceSqlite implements AccountService {
                 prenom,
                 false,          // isAdmin
                 "ACTIVE",       // status
-                false,          // passwordMustChange
+                true,           // passwordMustChange
                 true            // actif
         );
     }
@@ -335,4 +336,152 @@ public final class AccountServiceSqlite implements AccountService {
             throw new RuntimeException("AccountServiceSqlite.changePasswordAndClearFlag failed: " + msg, e);
         }
     }
+
+    // =========================================================
+    // ============ LISTE DES COMPTES ==========================
+    // =========================================================
+
+    @Override
+    public List<UserAccountSummary> listAllAccounts() {
+        final String sql = """
+                SELECT
+                    personne_id,
+                    email,
+                    isAdmin,
+                    actif,
+                    status,
+                    password_must_change
+                FROM PERSONNE
+                ORDER BY isAdmin DESC, email ASC
+                """;
+
+        List<UserAccountSummary> list = new ArrayList<>();
+
+        try (Connection c = SqliteDataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                long userId = rs.getLong("personne_id");
+                String email = rs.getString("email");
+                boolean isAdmin = rs.getInt("isAdmin") == 1;
+                boolean actif = rs.getInt("actif") == 1;
+                String status = rs.getString("status");
+                boolean passwordMustChange = rs.getInt("password_must_change") == 1;
+
+                // Rôle "logique" basé sur isAdmin
+                String roleName = isAdmin
+                        ? Role.adminRole().getName()
+                        : Role.adherentRole().getName();
+
+                // Simplification TP : adherentId = userId si isAdmin = 0, sinon null
+                Long adherentId = isAdmin ? null : userId;
+
+                UserAccountSummary summary = new UserAccountSummary(
+                        userId,
+                        email,
+                        roleName,
+                        status,
+                        actif,
+                        passwordMustChange,
+                        adherentId
+                );
+                list.add(summary);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("AccountServiceSqlite.listAllAccounts failed", e);
+        }
+
+        return list;
+    }
+
+    // =========================================================
+    // ============ CHANGEMENT STATUT ==========================
+    // =========================================================
+
+    @Override
+    public void changeAccountStatus(long targetUserId, String newStatus, long actingUserId) {
+        if (targetUserId <= 0 || actingUserId <= 0) {
+            throw new IllegalArgumentException("Ids utilisateurs invalides.");
+        }
+        Objects.requireNonNull(newStatus, "newStatus");
+
+        // On empêche un utilisateur de modifier son propre statut
+        if (targetUserId == actingUserId) {
+            throw new IllegalArgumentException("Impossible de modifier votre propre statut de compte.");
+        }
+
+        String normalized = newStatus.trim().toUpperCase();
+        int actifValue;
+
+        // Pour le TP : on gère seulement ACTIVE / SUSPENDED,
+        // mais tu peux élargir à PENDING si tu veux.
+        switch (normalized) {
+            case "ACTIVE" -> actifValue = 1;
+            case "SUSPENDED" -> actifValue = 0;
+            default -> throw new IllegalArgumentException(
+                    "Statut invalide : " + newStatus + " (utiliser ACTIVE ou SUSPENDED)"
+            );
+        }
+
+        final String sql = """
+            UPDATE PERSONNE
+            SET status = ?, actif = ?
+            WHERE personne_id = ?
+            """;
+
+        try (Connection c = SqliteDataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            ps.setString(1, normalized);
+            ps.setInt(2, actifValue);
+            ps.setLong(3, targetUserId);
+
+            int updated = ps.executeUpdate();
+            if (updated == 0) {
+                throw new IllegalStateException("Aucun compte trouvé pour id = " + targetUserId);
+            }
+
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            throw new RuntimeException("AccountServiceSqlite.changeAccountStatus failed: " + msg, e);
+        }
+    }
+
+    // =========================================================
+    // ============ SUPPRESSION COMPTE =========================
+    // =========================================================
+
+    @Override
+    public void deleteAccount(long targetUserId, long actingUserId) {
+        if (targetUserId <= 0 || actingUserId <= 0) {
+            throw new IllegalArgumentException("Ids utilisateurs invalides.");
+        }
+
+        // Règle métier : on ne peut pas supprimer son propre compte
+        if (targetUserId == actingUserId) {
+            throw new IllegalArgumentException("Impossible de supprimer votre propre compte.");
+        }
+
+        final String sql = "DELETE FROM PERSONNE WHERE personne_id = ?";
+
+        try (Connection c = SqliteDataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            ps.setLong(1, targetUserId);
+            int deleted = ps.executeUpdate();
+
+            if (deleted == 0) {
+                throw new IllegalStateException("Aucun compte trouvé pour id = " + targetUserId);
+            }
+
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            // Ici tu peux gérer éventuellement les erreurs de FK
+            // (si PERSONNE est référencée par EMPRUNT, etc.)
+            throw new RuntimeException("AccountServiceSqlite.deleteAccount failed: " + msg, e);
+        }
+    }
+
 }

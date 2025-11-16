@@ -50,6 +50,9 @@ public class MainShellController {
 
     @FXML
     private ToggleButton btnMesPenalites;
+    
+    @FXML
+    private ToggleButton btnAccounts;
 
     // --- Référence au Navigator ---
     private Navigator navigator;
@@ -97,9 +100,10 @@ public class MainShellController {
             setVisibleAndManaged(btnAdherents, true);
             setVisibleAndManaged(btnLoans, true);
             setVisibleAndManaged(btnPenalites, true);
-
+            
             setVisibleAndManaged(btnMesEmprunts, false);
             setVisibleAndManaged(btnMesPenalites, false);
+            setVisibleAndManaged(btnAccounts, true);
 
         } else if (isAdherent) {
             // Adhérent : accès au catalogue + vues perso
@@ -111,6 +115,7 @@ public class MainShellController {
 
             setVisibleAndManaged(btnMesEmprunts, true);
             setVisibleAndManaged(btnMesPenalites, true);
+            setVisibleAndManaged(btnAccounts, false);
 
         } else {
             // Invité / rôle inconnu
@@ -152,7 +157,6 @@ public class MainShellController {
     @FXML
     private void goDashboard() {
         if (navigator != null) {
-            // session déjà connue côté Navigator
             navigator.goToDashboard(null);
         }
     }
@@ -198,9 +202,21 @@ public class MainShellController {
             navigator.goToMesPenalites();
         }
     }
+    
+    @FXML
+    private void goAccounts() {
+        if (navigator != null) {
+            navigator.goToAccounts();
+        }
+    }
 
     @FXML
-    private void exitApp() {
-        Platform.exit();
+    private void logout() {
+        if (navigator != null) {
+            navigator.logout();
+        } else {
+            // fallback "sécurité" si jamais
+            Platform.exit();
+        }
     }
 }

@@ -156,6 +156,21 @@
 	                    </StackPane>
 	                </graphic>
 	            </ToggleButton>
+	            
+	            <ToggleButton fx:id="btnAccounts"
+				              onAction="#goAccounts"
+				              styleClass="nav-btn"
+				              text="Comptes"
+				              toggleGroup="$navGroup"
+				              maxWidth="Infinity">
+				    <graphic>
+				        <StackPane styleClass="svg-icon">
+				            <!-- Icône simple type “user shield” ou ce que tu veux -->
+				            <SVGPath content="M 12 2 C 8 4 4 4 4 4 L 4 11 C 4 16 8 20 12 22 C 16 20 20 16 20 11 L 20 4 C 20 4 16 4 12 2 z M 12 6 A 3 3 0 0 1 15 9 A 3 3 0 0 1 12 12 A 3 3 0 0 1 9 9 A 3 3 0 0 1 12 6 z M 12 14 C 10 14 8.3 14.8 7.2 16.1 C 8.4 17.8 10.1 19.1 12 20 C 13.9 19.1 15.6 17.8 16.8 16.1 C 15.7 14.8 14 14 12 14 z"
+				                     styleClass="svg-path" />
+				        </StackPane>
+				    </graphic>
+				</ToggleButton>
 	
 	        </VBox>
 	
@@ -168,17 +183,17 @@
 	                <Label fx:id="lblRole" styleClass="user-status" text="Rôle..." />
 	            </VBox>
 	
-	            <Button onAction="#exitApp"
-	                    styleClass="nav-btn, danger-btn"
-	                    text="Quitter"
-	                    maxWidth="Infinity">
-	                <graphic>
-	                    <StackPane styleClass="svg-icon">
-	                        <SVGPath content="M 12 2 L 12 4 L 19 4 L 19 20 L 12 20 L 12 22 L 19 22 C 20.105 22 21 21.105 21 20 L 21 4 C 21 2.895 20.105 2 19 2 L 12 2 z M 9 6 L 7.59375 7.40625 L 10.1875 10 L 2 10 L 2 12 L 10.1875 12 L 7.59375 14.59375 L 9 16 L 14 11 L 9 6 z"
-	                             styleClass="svg-path" />
-	                    </StackPane>
-	                </graphic>
-	            </Button>
+	            <Button onAction="#logout"
+				        styleClass="nav-btn, danger-btn"
+				        text="Déconnexion"
+				        maxWidth="Infinity">
+				    <graphic>
+				        <StackPane styleClass="svg-icon">
+				            <SVGPath content="M 12 2 L 12 4 L 19 4 L 19 20 L 12 20 L 12 22 L 19 22 C 20.105 22 21 21.105 21 20 L 21 4 C 21 2.895 20.105 2 19 2 L 12 2 z M 9 6 L 7.59375 7.40625 L 10.1875 10 L 2 10 L 2 12 L 10.1875 12 L 7.59375 14.59375 L 9 16 L 14 11 L 9 6 z"
+				                     styleClass="svg-path" />
+				        </StackPane>
+				    </graphic>
+				</Button>
 	        </VBox>
 	
 	    </VBox>

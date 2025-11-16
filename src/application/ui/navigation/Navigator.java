@@ -24,10 +24,7 @@ public interface Navigator {
      */
     void goToDashboard(AccountService.UserSession session);
 
-    /**
-     * Surcharge pratique : réutilise la session courante
-     * mémorisée dans l’implémentation du Navigator.
-     */
+    /** Surcharge pratique : réutilise la session courante mémorisée dans le Navigator. */
     default void goToDashboard() {
         goToDashboard(null);
     }
@@ -44,16 +41,8 @@ public interface Navigator {
     /** Navigation vers la gestion des pénalités (ADMIN). */
     void goToPenalites();
 
-    // --- Écrans "hors shell" (pré-login) ---
-
-    /** Navigue vers l'écran de connexion. */
-    void goToLogin();
-
-    /**
-     * Navigue vers l'écran de création de compte adhérent.
-     * (peut provisoirement pointer vers la même vue que Login)
-     */
-    void goToRegister();
+    /** Navigation vers la gestion des comptes applicatifs (ADMIN). */
+    void goToAccounts();
 
     // --- Vues adhérent ---
 
@@ -62,4 +51,33 @@ public interface Navigator {
 
     /** Vue adhérent : "Mes pénalités". */
     void goToMesPenalites();
+
+    // --- Écrans "hors shell" (pré-login) ---
+
+    /** Navigue vers l'écran de connexion. */
+    void goToLogin();
+
+    /**
+     * Navigue vers l'écran de création de compte adhérent (inscription publique).
+     * (peut provisoirement pointer vers la même vue que Login)
+     */
+    void goToRegister();
+
+    // --- Changement de mot de passe imposé ---
+
+    /**
+     * Écran de changement de mot de passe lors de la première connexion
+     * ou lorsqu'un flag "passwordMustChange" est activé.
+     */
+    void goToChangePassword(AccountService.UserSession session);
+
+    // --- Déconnexion ---
+    
+
+    /**
+     * Déconnexion de l'utilisateur :
+     * - efface la session courante,
+     * - revient à la Landing page (LandingView.fxml).
+     */
+    void logout();
 }

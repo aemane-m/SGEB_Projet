@@ -3,6 +3,7 @@ package application.domain.service;
 import application.domain.core.security.Role;
 import application.domain.core.security.Capability;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -58,6 +59,49 @@ public interface AccountService {
      * temporaire).
      */
     void changePasswordAndClearFlag(long userId, String rawPassword);
+
+    // =============================
+    // ======== Gestion comptes ====
+    // =============================
+
+    /**
+     * Résumé d’un compte (admin + adhérent) pour la gestion
+     * dans l’interface d’administration.
+     */
+    record UserAccountSummary(
+            long userId,
+            String email,
+            String roleName,          // "ADMIN" / "ADHERENT"
+            String status,            // "ACTIVE" / "PENDING" / "SUSPENDED" ...
+            boolean actif,            // vrai si le compte est activé
+            boolean passwordMustChange,
+            Long adherentId           // null pour un admin, id pour un adhérent
+    ) { }
+
+    /**
+     * Liste tous les comptes (admin + adhérents).
+     */
+    List<UserAccountSummary> listAllAccounts();
+
+    /**
+     * Change le statut d’un compte (par ex. ACTIVE / SUSPENDED),
+     * avec vérification métier :
+     * - un utilisateur ne peut pas modifier son propre statut.
+     *
+     * @param targetUserId  id du compte dont on change le statut
+     * @param newStatus     nouveau statut logique ("ACTIVE", "SUSPENDED", ...)
+     * @param actingUserId  id de l'utilisateur qui effectue l'action
+     */
+    void changeAccountStatus(long targetUserId, String newStatus, long actingUserId);
+
+    /**
+     * Supprime un compte (admin ou adhérent) avec règles métier :
+     * - un utilisateur ne peut pas supprimer son propre compte.
+     *
+     * @param targetUserId  id du compte à supprimer
+     * @param actingUserId  id de l'utilisateur qui effectue l'action
+     */
+    void deleteAccount(long targetUserId, long actingUserId);
 
     // =============================
     // ===== Structures retour =====
