@@ -1,5 +1,6 @@
 package application.ui.viewmodel;
 
+import application.domain.core.emprunt.Emprunt;
 import application.domain.core.emprunt.Penalite;
 import application.domain.ports.repository.EmpruntRepository;
 import application.domain.ports.repository.PenaliteRepository;
@@ -10,20 +11,24 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * ViewModel pour "Mes pénalités" côté adhérent.
  *
  * - Charge les pénalités d'un adhérent donné.
+ * - Attache les Emprunts (et donc les Documents) pour l'affichage.
  * - Expose une commande demanderPaiement(penaliteId).
  */
 public final class MesPenalitesViewModel {
 
     private final PenaliteService penaliteService;
-    private EmpruntRepository empruntRepository;      // optionnel pour évolutions futures
-    private PenaliteRepository penaliteRepository;    // idem
+    private final EmpruntRepository empruntRepository;      // utilisé pour retrouver les documents
+    @SuppressWarnings("unused")
+    private final PenaliteRepository penaliteRepository;    // gardé pour évolutions
 
     /** Id de l'adhérent courant. */
     private long adherentId;
@@ -34,24 +39,28 @@ public final class MesPenalitesViewModel {
     private final StringProperty  error   = new SimpleStringProperty("");
     private final StringProperty  success = new SimpleStringProperty("");
 
+    // ------------------------------------------------------------------------
+    // Constructeurs
+    // ------------------------------------------------------------------------
+
     public MesPenalitesViewModel(PenaliteService penaliteService) {
-        this.penaliteService = Objects.requireNonNull(penaliteService, "penaliteService");
+        this(penaliteService, null, null, null);
     }
 
     /**
      * Constructeur complet utilisé par FxNavigator.
      *
-     * @param penaliteService   service domaine des pénalités
-     * @param empruntRepository repository des emprunts (optionnel)
+     * @param penaliteService    service domaine des pénalités
+     * @param empruntRepository  repository des emprunts (peut être null mais recommandé)
      * @param penaliteRepository repository des pénalités (optionnel)
-     * @param adherentId        id de l'adhérent (peut être null)
+     * @param adherentId         id de l'adhérent (peut être null)
      */
     public MesPenalitesViewModel(PenaliteService penaliteService,
                                  EmpruntRepository empruntRepository,
                                  PenaliteRepository penaliteRepository,
                                  Long adherentId) {
 
-        this(penaliteService);
+        this.penaliteService = Objects.requireNonNull(penaliteService, "penaliteService");
         this.empruntRepository = empruntRepository;
         this.penaliteRepository = penaliteRepository;
 
@@ -69,12 +78,16 @@ public final class MesPenalitesViewModel {
         refresh();
     }
 
+    // ------------------------------------------------------------------------
+    // Chargement / rafraîchissement
+    // ------------------------------------------------------------------------
+
     /**
-     * Recharge les pénalités pour l'adhérent courant.
+     * Recharge les pénalités pour l'adhérent courant et attache les Emprunts.
      */
     public void refresh() {
         if (adherentId <= 0) {
-            return;
+            return; // pas encore de session adhérent
         }
 
         setLoading(true);
@@ -84,23 +97,53 @@ public final class MesPenalitesViewModel {
         CompletableFuture
             .supplyAsync(() -> penaliteService.getPenalitesPourAdherent(adherentId))
             .whenComplete((list, ex) -> {
-                Platform.runLater(() -> {
-                    if (ex != null) {
-                        Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
+                if (ex != null) {
+                    Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
+                    Platform.runLater(() -> {
                         setError(cause.getMessage() != null ? cause.getMessage() : cause.toString());
-                        penalites.clear(); // <-- au lieu de setAll()
-                    } else {
-                        // list est maintenant List<Penalite>
-                        var safeList = (list != null) ? list : List.<Penalite>of();
-                        penalites.setAll(safeList); // <-- plus d'erreur de type
+                        penalites.clear();
+                        setLoading(false);
+                    });
+                    return;
+                }
+
+                List<Penalite> safeList = (list != null) ? list : List.of();
+
+                // Attache les Emprunts pour avoir Document / Emprunteur dans l'UI
+                if (empruntRepository != null && !safeList.isEmpty()) {
+                    List<Emprunt> allEmprunts = empruntRepository.findAll();
+                    Map<Long, Emprunt> empruntMap = allEmprunts.stream()
+                            .collect(Collectors.toMap(Emprunt::getId, e -> e));
+
+                    for (Penalite p : safeList) {
+                        Long empruntId = p.getEmpruntId();
+                        if (empruntId != null) {
+                            Emprunt e = empruntMap.get(empruntId);
+                            if (e != null) {
+                                p.setEmprunt(e);
+                            }
+                        }
+                    }
+                }
+
+                Platform.runLater(() -> {
+                    penalites.setAll(safeList);
+                    if (safeList.isEmpty()) {
+                        setSuccess("Aucune pénalité enregistrée.");
                     }
                     setLoading(false);
                 });
             });
     }
 
+    // ------------------------------------------------------------------------
+    // Demande de paiement
+    // ------------------------------------------------------------------------
+
     /**
      * Demande de paiement pour une pénalité donnée.
+     * Côté domaine, PenaliteService.demanderPaiement(...) met à jour le statut
+     * (par ex. DUE -> PAYMENT_REQUESTED) que l’admin verra dans son écran.
      */
     public void demanderPaiement(long penaliteId) {
         if (penaliteId <= 0) {
@@ -121,7 +164,8 @@ public final class MesPenalitesViewModel {
                         setError(cause.getMessage() != null ? cause.getMessage() : cause.toString());
                     } else {
                         setSuccess("Demande de paiement envoyée.");
-                        refresh(); // Recharge les statuts
+                        // On recharge pour voir le statut PAYMENT_REQUESTED
+                        refresh();
                     }
                     setLoading(false);
                 });

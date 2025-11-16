@@ -1,99 +1,89 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Pagination?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Spinner?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.TitledPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
 
-<BorderPane xmlns="http://javafx.com/javafx/21"
-            xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="application.ui.viewmodel.controller.CatalogueController"
-            stylesheets="@../css/style.css"
-            styleClass="dashboard-root">
+<BorderPane styleClass="dashboard-root" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.CatalogueController">
 
     <top>
         <VBox spacing="12" styleClass="dashboard-header">
             <padding>
-                <Insets top="20" right="48" bottom="12" left="48"/>
+                <Insets bottom="12" left="48" right="48" top="20" />
             </padding>
 
             <HBox alignment="CENTER_LEFT" spacing="12">
-                <Label text="Catalogue" styleClass="title"/>
-                <Region HBox.hgrow="ALWAYS"/>
+                <Label styleClass="title" text="Catalogue" />
+                <Region HBox.hgrow="ALWAYS" />
             </HBox>
 
             <HBox alignment="CENTER_LEFT" spacing="10">
-                <TextField fx:id="searchField"
-                           promptText="Rechercher (titre, éditeur, genre…)"
-                           HBox.hgrow="ALWAYS"/>
-                <Region HBox.hgrow="ALWAYS"/>
-                <ProgressIndicator fx:id="progress"
-                                   prefWidth="18" prefHeight="18"
-                                   visible="false" managed="false"/>
-                <Button fx:id="btnSearch"  text="Rechercher" styleClass="btn btn-primary"/>
-                <Button fx:id="btnRefresh" text="Actualiser"  styleClass="btn btn-secondary"/>
-                <Button fx:id="btnClear"   text="Effacer"     styleClass="btn btn-secondary"/>
-                <Button fx:id="btnAdd"     text="Ajout"       styleClass="btn btn-primary"/>
+                <TextField fx:id="searchField" promptText="Rechercher (titre, éditeur, genre…)" HBox.hgrow="ALWAYS" />
+                <Region HBox.hgrow="ALWAYS" />
+                <ProgressIndicator fx:id="progress" managed="false" prefHeight="18" prefWidth="18" visible="false" />
+                <Button fx:id="btnSearch" styleClass="btn-primary" text="Rechercher" />
+                <Button fx:id="btnRefresh" styleClass="btn-secondary" text="Actualiser" />
+                <Button fx:id="btnClear" styleClass="btn-secondary" text="Effacer" />
+                <Button fx:id="btnAdd" styleClass="btn-primary" text="Ajouter un document" />
             </HBox>
 
-            <TitledPane fx:id="filtersPane"
-                        text="Filtres avancés"
-                        expanded="false"
-                        animated="true"
-                        styleClass="titled-pane, card-like, collapsible">
+            <TitledPane fx:id="filtersPane" animated="true" expanded="false" styleClass="titled-pane, card-like, collapsible" text="Filtres avancés">
                 <content>
                     <GridPane hgap="12" vgap="10">
                         <padding>
-                            <Insets top="0" right="0" bottom="0" left="0"/>
+                            <Insets bottom="0" left="0" right="0" top="0" />
                         </padding>
                         <columnConstraints>
-                            <ColumnConstraints percentWidth="25"/>
-                            <ColumnConstraints percentWidth="75"/>
+                            <ColumnConstraints percentWidth="25" />
+                            <ColumnConstraints percentWidth="75" />
                         </columnConstraints>
 
-                        <Label text="Type" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
-                        <ComboBox fx:id="cbType"
-                                  promptText="Tous"
-                                  maxWidth="Infinity"
-                                  GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                        <Label text="Type" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <ComboBox fx:id="cbType" maxWidth="Infinity" promptText="Tous" GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
-                        <Label text="Genre" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
-                        <TextField fx:id="tfGenre"
-                                   promptText="Ex. Roman, Essai, Jazz…"
-                                   maxWidth="Infinity"
-                                   GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        <Label text="Genre" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                        <TextField fx:id="tfGenre" maxWidth="Infinity" promptText="Ex. Roman, Essai, Jazz…" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
-                        <Label text="Éditeur" GridPane.rowIndex="2" GridPane.columnIndex="0"/>
-                        <TextField fx:id="tfEditeur"
-                                   promptText="Ex. Gallimard, Sony…"
-                                   maxWidth="Infinity"
-                                   GridPane.rowIndex="2" GridPane.columnIndex="1"/>
+                        <Label text="Éditeur" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+                        <TextField fx:id="tfEditeur" maxWidth="Infinity" promptText="Ex. Gallimard, Sony…" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                        <Label text="Année (min/max)" GridPane.rowIndex="3" GridPane.columnIndex="0"/>
-                        <HBox spacing="10" alignment="CENTER_LEFT"
-                              GridPane.rowIndex="3" GridPane.columnIndex="1">
-                            <Spinner fx:id="spAnneeMin" prefWidth="120"/>
-                            <Label text="—"/>
-                            <Spinner fx:id="spAnneeMax" prefWidth="120"/>
+                        <Label text="Année (min/max)" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+                        <HBox alignment="CENTER_LEFT" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="3">
+                            <Spinner fx:id="spAnneeMin" prefWidth="120" />
+                            <Label text="—" />
+                            <Spinner fx:id="spAnneeMax" prefWidth="120" />
                         </HBox>
 
-                        <Label text="Disponibilité" GridPane.rowIndex="4" GridPane.columnIndex="0"/>
-                        <CheckBox fx:id="chkDisponible"
-                                  text="Uniquement les documents disponibles"
-                                  GridPane.rowIndex="4" GridPane.columnIndex="1"/>
+                        <Label text="Disponibilité" GridPane.columnIndex="0" GridPane.rowIndex="4" />
+                        <CheckBox fx:id="chkDisponible" text="Uniquement les documents disponibles" GridPane.columnIndex="1" GridPane.rowIndex="4" />
 
-                        <HBox spacing="10" alignment="CENTER_RIGHT"
-                              GridPane.rowIndex="5" GridPane.columnIndex="1">
-                            <Button fx:id="btnApplyFilters" text="Appliquer les filtres" styleClass="btn btn-primary"/>
-                            <Button fx:id="btnResetFilters" text="Réinitialiser"        styleClass="btn btn-secondary"/>
+                        <HBox alignment="CENTER_RIGHT" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="5">
+                            <Button fx:id="btnApplyFilters" styleClass="btn-primary" text="Appliquer les filtres" />
+                            <Button fx:id="btnResetFilters" styleClass="btn-secondary" text="Réinitialiser" />
                         </HBox>
 
                         <rowConstraints>
-                            <RowConstraints/>
-                            <RowConstraints/>
-                            <RowConstraints/>
-                            <RowConstraints/>
-                            <RowConstraints/>
-                            <RowConstraints/>
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
                         </rowConstraints>
                     </GridPane>
                 </content>
@@ -102,15 +92,9 @@
     </top>
 
     <center>
-        <ScrollPane fx:id="rootScroll"
-                    fitToWidth="true"
-                    hbarPolicy="NEVER"
-                    vbarPolicy="AS_NEEDED"
-                    styleClass="dashboard-scroll">
+        <ScrollPane fx:id="rootScroll" fitToWidth="true" hbarPolicy="NEVER" styleClass="dashboard-scroll" vbarPolicy="AS_NEEDED">
             
-            <Pagination fx:id="pagination"
-                        maxPageIndicatorCount="7"
-                        styleClass="pager pager-rounded"/>
+            <Pagination fx:id="pagination" maxPageIndicatorCount="7" pageCount="1000" prefWidth="725.0" styleClass="pager-rounded" />
                         
         </ScrollPane>
     </center>
@@ -118,12 +102,9 @@
     <bottom>
         <HBox alignment="CENTER_LEFT" styleClass="dashboard-footer">
             <padding>
-                <Insets top="10" right="48" bottom="20" left="48"/>
+                <Insets bottom="20" left="48" right="48" top="10" />
             </padding>
-            <Label fx:id="errorLabel"
-                   styleClass="error-message"
-                   visible="false"
-                   managed="false"/>
+            <Label fx:id="errorLabel" managed="false" styleClass="error-message" visible="false" />
         </HBox>
     </bottom>
 </BorderPane>

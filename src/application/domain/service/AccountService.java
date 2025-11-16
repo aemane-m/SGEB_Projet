@@ -1,9 +1,10 @@
 package application.domain.service;
 
-import application.domain.core.security.Role;
 import application.domain.core.security.Capability;
+import application.domain.core.security.Role;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -54,11 +55,30 @@ public interface AccountService {
     // =============================
 
     /**
-     * Change le mot de passe de l'utilisateur et met le flag
-     * "passwordMustChange" à false (utilisé après login avec mot de passe
+     * Change le mot de passe de l'utilisateur connecté et met le flag
+     * {@code passwordMustChange} à false (utilisé après login avec mot de passe
      * temporaire).
      */
     void changePasswordAndClearFlag(long userId, String rawPassword);
+
+    /**
+     * Réinitialise le mot de passe d'un utilisateur (cas admin).
+     * Utilisé par l’interface d’administration :
+     * - {@code targetUserId} : id du compte cible
+     * - {@code rawPassword} : nouveau mot de passe en clair
+     * - {@code forcePasswordChange} : si true, l’utilisateur devra le changer
+     *   à sa prochaine connexion.
+     */
+    void adminResetPassword(long targetUserId,
+                            String rawPassword,
+                            boolean forcePasswordChange);
+
+    /**
+     * Récupère le compte associé à un adhérent donné.
+     * Dans ton modèle simplifié, {@code adherentId == personne_id} quand
+     * {@code isAdmin = 0}.
+     */
+    Optional<UserAccountSummary> findAccountByAdherentId(long adherentId);
 
     // =============================
     // ======== Gestion comptes ====
@@ -78,9 +98,7 @@ public interface AccountService {
             Long adherentId           // null pour un admin, id pour un adhérent
     ) { }
 
-    /**
-     * Liste tous les comptes (admin + adhérents).
-     */
+    /** Liste tous les comptes (admin + adhérents). */
     List<UserAccountSummary> listAllAccounts();
 
     /**
@@ -88,9 +106,9 @@ public interface AccountService {
      * avec vérification métier :
      * - un utilisateur ne peut pas modifier son propre statut.
      *
-     * @param targetUserId  id du compte dont on change le statut
-     * @param newStatus     nouveau statut logique ("ACTIVE", "SUSPENDED", ...)
-     * @param actingUserId  id de l'utilisateur qui effectue l'action
+     * @param targetUserId id du compte dont on change le statut
+     * @param newStatus    nouveau statut logique ("ACTIVE", "SUSPENDED", ...)
+     * @param actingUserId id de l'utilisateur qui effectue l'action
      */
     void changeAccountStatus(long targetUserId, String newStatus, long actingUserId);
 
@@ -98,8 +116,8 @@ public interface AccountService {
      * Supprime un compte (admin ou adhérent) avec règles métier :
      * - un utilisateur ne peut pas supprimer son propre compte.
      *
-     * @param targetUserId  id du compte à supprimer
-     * @param actingUserId  id de l'utilisateur qui effectue l'action
+     * @param targetUserId id du compte à supprimer
+     * @param actingUserId id de l'utilisateur qui effectue l'action
      */
     void deleteAccount(long targetUserId, long actingUserId);
 

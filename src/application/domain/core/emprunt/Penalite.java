@@ -170,4 +170,15 @@ public final class Penalite {
     public LocalDate getDateFin() {
         return this.datePaiement;
     }
+
+ // Dans Penalite
+    public void overrideStatusFromPersistence(PenaliteStatus newStatus) {
+        if (newStatus == null) return;
+        // On ne casse pas les invariants : une pénalité payée en base reste payée
+        if (this.datePaiement != null && newStatus == PenaliteStatus.DUE) {
+            // Incohérent : on ignore ce cas
+            return;
+        }
+        this.status = newStatus;
+    }
 }

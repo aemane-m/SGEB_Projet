@@ -10,16 +10,17 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<!-- Imports pour les types de données dans les TableView -->
-<?import application.ui.viewmodel.PenalitesViewModel.AdherentPenaliteSummary?>
-<?import application.domain.core.emprunt.Penalite?>
+<VBox spacing="12" styleClass="dashboard-root"
+      stylesheets="@../css/style.css"
+      xmlns="http://javafx.com/javafx/23.0.1"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="application.ui.viewmodel.controller.PenalitesController">
 
-<VBox spacing="12" stylesheets="@../css/style.css" styleClass="dashboard-root" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.PenalitesController">
     <padding>
         <Insets bottom="20" left="48" right="48" top="28" />
     </padding>
 
-    <!-- Header -->
+    <!-- EN-TÊTE -->
     <HBox alignment="CENTER_LEFT" spacing="10">
         <Label styleClass="title" text="Gestion des Pénalités" />
         <Region HBox.hgrow="ALWAYS" />
@@ -27,43 +28,82 @@
         <Button fx:id="btnRefresh" styleClass="btn-secondary" text="Rafraîchir" />
     </HBox>
 
-    <!-- Messages -->
+    <!-- MESSAGES -->
     <Label fx:id="errorLabel" managed="false" styleClass="error-message" visible="false" wrapText="true" />
     <Label fx:id="successLabel" managed="false" styleClass="success-message" visible="false" wrapText="true" />
 
-    <!-- Table Maître : Adhérents avec pénalités -->
-    <VBox styleClass="card" spacing="10">
+    <!-- TABLE PRINCIPALE (Adhérents)-->
+    <VBox spacing="10" styleClass="card">
         <Label styleClass="section-title" text="Adhérents avec pénalités actives" />
-        <TableView fx:id="tableAdherents" prefHeight="250">
+
+        <TableView fx:id="tableAdherents" prefHeight="250" styleClass="data-table">
+
             <columns>
-                <TableColumn fx:id="colAdherentNom" prefWidth="300" text="Adhérent" />
-                <TableColumn fx:id="colPenaliteCount" prefWidth="150" text="Pénalités Actives" />
-                <TableColumn fx:id="colPenaliteTotal" prefWidth="150" text="Total Dû" />
+                <TableColumn fx:id="colAdherentNom"
+                             prefWidth="200.0" resizable="false"
+                             text="Adhérent" />
+
+                <TableColumn fx:id="colPenaliteCount"
+                             prefWidth="140.0" resizable="false"
+                             text="Pénalités actives" />
+
+                <TableColumn fx:id="colPenaliteRequested"
+                             prefWidth="160.0" resizable="false"
+                             text="Demandes de paiement" />
+
+                <TableColumn fx:id="colPenaliteTotal"
+                             prefWidth="140.0" resizable="false"
+                             text="Total dû" />
             </columns>
-            <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY" /></columnResizePolicy>
-            <placeholder><Label text="Aucun adhérent n'a de pénalité active." /></placeholder>
+
+            <columnResizePolicy>
+                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+            </columnResizePolicy>
+
+            <placeholder>
+                <Label text="Aucun adhérent n'a de pénalité active." />
+            </placeholder>
         </TableView>
     </VBox>
 
-    <!-- CORRIGÉ : Table Détail (masquée par défaut) -->
-    <VBox fx:id="detailsPane" styleClass="card" spacing="10" VBox.vgrow="ALWAYS" visible="false" managed="false">
+    <!-- TABLE DÉTAILLÉE -->
+    <VBox fx:id="detailsPane"
+          managed="false" visible="false"
+          spacing="10" styleClass="card"
+          VBox.vgrow="ALWAYS">
+
         <HBox alignment="CENTER_LEFT" spacing="10">
             <Label styleClass="section-title" text="Détail des pénalités" />
             <Region HBox.hgrow="ALWAYS" />
-            <Button fx:id="btnReglerTout" styleClass="btn-primary" text="Tout Régler pour cet Adhérent" />
+            <Button fx:id="btnReglerTout" styleClass="btn-primary" text="Tout régler pour cet adhérent" />
         </HBox>
-        
-        <TableView fx:id="tableDetails" prefHeight="300" VBox.vgrow="ALWAYS">
+
+        <TableView fx:id="tableDetails" prefHeight="300"
+                   styleClass="data-table"
+                   VBox.vgrow="ALWAYS">
+
             <columns>
-                <TableColumn fx:id="colDetailDoc" prefWidth="300" text="Document" />
-                <TableColumn fx:id="colDetailDate" prefWidth="150" text="Date de génération" />
-                <TableColumn fx:id="colDetailMontant" prefWidth="120" text="Montant" />
-                <TableColumn fx:id="colDetailAction" prefWidth="120" text="Action" />
+                <TableColumn fx:id="colDetailDoc"
+                             prefWidth="300" text="Document" />
+
+                <TableColumn fx:id="colDetailDate"
+                             prefWidth="150" text="Date" />
+
+                <TableColumn fx:id="colDetailMontant"
+                             prefWidth="120" text="Montant" />
+
+                <TableColumn fx:id="colDetailAction"
+                             prefWidth="120" text="Action" />
             </columns>
-            <columnResizePolicy><TableView fx:constant="CONSTRAINED_RESIZE_POLICY" /></columnResizePolicy>
-            <placeholder><Label text="Sélectionnez un adhérent ci-dessus pour voir le détail." /></placeholder>
+
+            <columnResizePolicy>
+                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+            </columnResizePolicy>
+
+            <placeholder>
+                <Label text="Sélectionnez un adhérent ci-dessus pour voir le détail." />
+            </placeholder>
         </TableView>
     </VBox>
 
 </VBox>
-

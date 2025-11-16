@@ -274,8 +274,8 @@
                             <Label style="-fx-font-weight: bold;" styleClass="card-title" text="Top adhérents (30j)" />
                             <TableView fx:id="tableAdherentsActifs" minHeight="240" prefHeight="320" style="-fx-font-weight: bold;" styleClass="data-table">
                                 <columns>
-                                    <TableColumn fx:id="colAdherentNom" prefWidth="346.0" style="-fx-font-weight: bold;" text="Adhérent" />
-                                    <TableColumn fx:id="colAdherentEmprunts" prefWidth="370.0" style="-fx-alignment: CENTER;" text="Emprunts" />
+                                    <TableColumn fx:id="colAdherentNom" prefWidth="339.0" resizable="false" style="-fx-font-weight: bold;" text="Adhérent" />
+                                    <TableColumn fx:id="colAdherentEmprunts" prefWidth="393.0" style="-fx-alignment: CENTER;" text="Emprunts" />
                                 </columns>
                                 <columnResizePolicy>
                                     <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />

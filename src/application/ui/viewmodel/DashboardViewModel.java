@@ -37,10 +37,7 @@ public class DashboardViewModel {
     private final DocumentRepository documentRepository;
     private final AdherentRepository adherentRepository;
     private final EmpruntRepository empruntRepository;
-    // PenaliteRepository passé mais non utilisé directement ici
-    @SuppressWarnings("unused")
     private final PenaliteRepository penaliteRepository;
-
     private final String username;
     private final String role;
 

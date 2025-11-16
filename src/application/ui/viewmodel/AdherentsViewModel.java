@@ -1,7 +1,6 @@
 package application.ui.viewmodel;
 
 import application.domain.core.emprunt.Emprunt;
-import application.domain.core.emprunt.Penalite;
 import application.domain.core.personne.Adherent;
 import application.domain.ports.repository.AdherentRepository;
 import application.domain.ports.repository.EmpruntRepository;
@@ -18,7 +17,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -32,7 +30,10 @@ import java.util.stream.Collectors;
  */
 public class AdherentsViewModel {
 
-    // --- Wrapper pour la TableView ---
+    // ------------------------------------------------------------------------
+    // Wrapper pour la TableView
+    // ------------------------------------------------------------------------
+
     public static class AdherentStatusWrapper {
         private final Adherent adherent;
         private final StringProperty statutProperty = new SimpleStringProperty();
@@ -55,14 +56,22 @@ public class AdherentsViewModel {
         }
     }
 
-    // --- Validation téléphone : format FR (0X..., +33..., 0033...) ---
+    // ------------------------------------------------------------------------
+    // Validation téléphone : format FR (0X..., +33..., 0033...)
+    // ------------------------------------------------------------------------
+
     private static final String PHONE_HINT =
             "Ex : 06 12 34 56 78 ou +33 6 12 34 56 78";
 
-    // Pattern : autorise chiffres, espaces, points, tirets, mais contrôle le nombre de chiffres
+    /**
+     * Pattern : autorise chiffres, espaces, points, tirets, mais contrôle le nombre de chiffres.
+     */
     private static boolean isTelephoneValid(String s) {
-        if (s == null || s.isBlank()) return true; // téléphone optionnel
-        String digits = s.replaceAll("\\D", "");    // ne garde que les chiffres
+        if (s == null || s.isBlank()) {
+            // Téléphone optionnel
+            return true;
+        }
+        String digits = s.replaceAll("\\D", ""); // ne garde que les chiffres
 
         // 0XXXXXXXXX (10 chiffres, commence par 0)
         if (digits.startsWith("0") && digits.length() == 10) {
@@ -79,33 +88,52 @@ public class AdherentsViewModel {
         return false;
     }
 
-    // --- Repositories (Services) ---
+    // ------------------------------------------------------------------------
+    // Repositories / Services domaine
+    // ------------------------------------------------------------------------
+
     private final AdherentRepository adherentRepository;
     private final EmpruntRepository empruntRepository;
     private final PenaliteRepository penaliteRepository;
     private final AccountService accountService;
 
-    // --- État UI ---
-    private final ObservableList<AdherentStatusWrapper> items = FXCollections.observableArrayList();
+    // ------------------------------------------------------------------------
+    // État UI
+    // ------------------------------------------------------------------------
+
+    private final ObservableList<AdherentStatusWrapper> items =
+            FXCollections.observableArrayList();
+
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final StringProperty error = new SimpleStringProperty("");
-    private final ObjectProperty<AdherentStatusWrapper> selected = new SimpleObjectProperty<>(null);
-    private final ObservableList<Emprunt> selectedAdherentHistorique = FXCollections.observableArrayList();
+    private final ObjectProperty<AdherentStatusWrapper> selected =
+            new SimpleObjectProperty<>(null);
 
-    // --- État Formulaire ---
+    private final ObservableList<Emprunt> selectedAdherentHistorique =
+            FXCollections.observableArrayList();
+
+    // ------------------------------------------------------------------------
+    // État Formulaire (fiche adhérent / compte)
+    // ------------------------------------------------------------------------
+
     private final LongProperty formId = new SimpleLongProperty(0);
     private final StringProperty formNom = new SimpleStringProperty("");
     private final StringProperty formPrenom = new SimpleStringProperty("");
     private final StringProperty formEmail = new SimpleStringProperty("");
     private final StringProperty formTelephone = new SimpleStringProperty("");
 
-    // Nouveaux champs pour la création de compte
+    // Champs pour la création de compte
     private final StringProperty formRole = new SimpleStringProperty("");       // "ADMIN" ou "ADHERENT"
     private final StringProperty formPassword = new SimpleStringProperty("");   // mot de passe temporaire
 
-    /**
-     * Constructeur principal.
-     */
+    // Champs pour la modification du compte (édition)
+    private final StringProperty formNewPassword = new SimpleStringProperty("");
+    private final BooleanProperty formForcePasswordChange = new SimpleBooleanProperty(false);
+
+    // ------------------------------------------------------------------------
+    // Constructeur
+    // ------------------------------------------------------------------------
+
     public AdherentsViewModel(AdherentRepository adhRepo,
                               EmpruntRepository empRepo,
                               PenaliteRepository penRepo,
@@ -115,27 +143,37 @@ public class AdherentsViewModel {
         this.penaliteRepository = Objects.requireNonNull(penRepo, "penRepo");
         this.accountService = Objects.requireNonNull(accountService, "accountService");
 
+        // Quand la sélection change, on recharge le formulaire
         selected.addListener((obs, oldVal, newVal) ->
                 loadFormFrom(newVal == null ? null : newVal.getAdherent())
         );
-        refresh(); // Charge la liste initiale
+
+        // Charge la liste initiale
+        refresh();
     }
+
+    // ------------------------------------------------------------------------
+    // Chargement / rafraîchissement
+    // ------------------------------------------------------------------------
 
     /**
      * Recharge la liste + les statuts en 2 requêtes.
      */
     public void refresh() {
         runSafely(() -> {
-            // Requête 1: Adhérents
-            var list = adherentRepository.findAll();
-            // Requête 2: Comptes de pénalités
+            // 1) Adhérents
+            List<Adherent> list = adherentRepository.findAll();
+
+            // 2) Comptage des pénalités actives
             Map<Long, Integer> penaltyCounts = penaliteRepository.findActivePenaltyCountsMap();
 
             // Combine en mémoire
             List<AdherentStatusWrapper> wrappers = list.stream()
                     .map(adherent -> {
                         int count = penaltyCounts.getOrDefault(adherent.getId(), 0);
-                        String statut = (count > 0) ? "⚠️ Pénalités (" + count + ")" : "✔️ OK";
+                        String statut = (count > 0)
+                                ? "⚠️ Pénalités (" + count + ")"
+                                : "✔️ OK";
                         return new AdherentStatusWrapper(adherent, statut);
                     })
                     .collect(Collectors.toList());
@@ -144,17 +182,19 @@ public class AdherentsViewModel {
             Platform.runLater(() -> {
                 items.setAll(wrappers);
                 var sel = selected.get();
-                if (sel != null && sel.getAdherent().getId() != null &&
-                        wrappers.stream().noneMatch(x -> sel.getAdherent().getId().equals(x.getAdherent().getId()))) {
+                if (sel != null
+                        && sel.getAdherent().getId() != null
+                        && wrappers.stream().noneMatch(
+                                x -> sel.getAdherent().getId().equals(x.getAdherent().getId()))) {
                     selected.set(null);
                 }
             });
         });
     }
 
-    // ===========================================================
-    // =============== CRUD (Formulaire) =========================
-    // ===========================================================
+    // ------------------------------------------------------------------------
+    // CRUD (Formulaire)
+    // ------------------------------------------------------------------------
 
     /** Prépare un nouveau formulaire (création). */
     public void createNew() {
@@ -196,29 +236,40 @@ public class AdherentsViewModel {
         }
 
         if (isNew) {
-            // Création : on délègue la création du compte au domaine
-            final String email = trimToNull(formEmail.get());
-            final String nom = trimToNull(formNom.get());
-            final String prenom = trimToNull(formPrenom.get());
-            final String password = formPassword.get();
-            final String role = formRole.get();
+            // =========================
+            // ==== Création compte ====
+            // =========================
+            final String email      = trimToNull(formEmail.get());
+            final String nom        = trimToNull(formNom.get());
+            final String prenom     = trimToNull(formPrenom.get());
+            final String password   = formPassword.get();
+            final String role       = formRole.get();
+            final String telephone  = trimToNull(formTelephone.get());
 
             runSafely(() -> {
-                // Vérifie d'abord côté AdherentRepository s'il n'y a pas déjà quelqu'un avec cet email
                 Optional<Adherent> existingByEmail = adherentRepository.findByEmail(email);
                 if (existingByEmail.isPresent()) {
                     throw new RuntimeException("Cet email est déjà utilisé par un autre adhérent.");
                 }
 
-                // Ensuite, création du compte réél via AccountService
+                // 1) Création du compte PERSONNE
                 if ("ADMIN".equalsIgnoreCase(role)) {
                     accountService.createAdmin(email, password, nom, prenom);
                 } else {
-                    // Par défaut on considère ADHERENT si non ADMIN
                     accountService.createAdherentPublic(email, password, nom, prenom);
                 }
 
-                // Le domaine se charge de créer le compte (et l’adhérent si nécessaire).
+                // 2) Création / mise à jour de l’Adherent avec le téléphone
+                Optional<Adherent> createdOpt = adherentRepository.findByEmail(email);
+                Adherent adh = createdOpt.orElseGet(Adherent::new);
+
+                adh.setNom(nom);
+                adh.setPrenom(prenom);
+                adh.setEmail(email);
+                adh.setTelephone(telephone);
+
+                adherentRepository.save(adh);
+
                 Platform.runLater(() -> {
                     clearForm();
                     refresh();
@@ -226,16 +277,40 @@ public class AdherentsViewModel {
             }, err -> setError("Erreur de création : " + getRootCauseMessage(err)));
 
         } else {
-            // Edition : on ne touche PAS au compte, on met juste à jour la fiche adhérent
+            // =========================
+            // ====== Édition ==========
+            // =========================
             Adherent model = toModelFromForm();
+            final String newPassword = trimToNull(formNewPassword.get());
+            final boolean forceChange = formForcePasswordChange.get();
+
             runSafely(() -> {
+                // 1) Vérif unicité email
                 Optional<Adherent> existingByEmail = adherentRepository.findByEmail(model.getEmail());
                 if (existingByEmail.isPresent()
-                        && (model.getId() == null || !existingByEmail.get().getId().equals(model.getId()))) {
+                        && (model.getId() == null
+                        || !existingByEmail.get().getId().equals(model.getId()))) {
                     throw new RuntimeException("Cet email est déjà utilisé par un autre adhérent.");
                 }
 
+                // 2) Sauvegarde fiche adhérent (nom, prenom, email, téléphone)
                 Adherent saved = adherentRepository.save(model);
+
+                // 3) Si admin a saisi un nouveau mot de passe, on appelle le domaine
+                if (newPassword != null && !newPassword.isBlank()) {
+                    // Dans ton modèle simplifié : adherentId == personne_id (pour les adhérents)
+                    long adherentId = saved.getId();
+                    Optional<AccountService.UserAccountSummary> accountOpt =
+                            accountService.findAccountByAdherentId(adherentId);
+
+                    if (accountOpt.isEmpty()) {
+                        throw new IllegalStateException(
+                                "Aucun compte associé trouvé pour l'adhérent id=" + adherentId);
+                    }
+
+                    long userId = accountOpt.get().userId();
+                    accountService.adminResetPassword(userId, newPassword, forceChange);
+                }
 
                 Platform.runLater(() -> {
                     clearForm();
@@ -249,9 +324,7 @@ public class AdherentsViewModel {
         }
     }
 
-    /**
-     * Supprime l'adhérent actuellement sélectionné.
-     */
+    /** Supprime l'adhérent actuellement sélectionné. */
     public void deleteSelected() {
         if (selected.get() != null) {
             delete(selected.get().getAdherent());
@@ -293,18 +366,20 @@ public class AdherentsViewModel {
         }, error -> setError("Erreur de suppression : " + getRootCauseMessage(error)));
     }
 
-    // ===========================================================
-    // =============== RECHERCHE / STATUT ========================
-    // ===========================================================
+    // ------------------------------------------------------------------------
+    // Recherche / Statut
+    // ------------------------------------------------------------------------
 
     public void searchByIdOrName(String query) {
         if (query == null || query.isBlank()) {
             refresh();
             return;
         }
+
         runSafely(() -> {
             String q = query.trim();
             List<Adherent> searchResult;
+
             try {
                 long id = Long.parseLong(q);
                 searchResult = adherentRepository.findById(id).map(List::of).orElse(List.of());
@@ -317,7 +392,9 @@ public class AdherentsViewModel {
             List<AdherentStatusWrapper> wrappers = searchResult.stream()
                     .map(adherent -> {
                         int count = penaltyCounts.getOrDefault(adherent.getId(), 0);
-                        String statut = (count > 0) ? "⚠️ Pénalités (" + count + ")" : "✔️ OK";
+                        String statut = (count > 0)
+                                ? "⚠️ Pénalités (" + count + ")"
+                                : "✔️ OK";
                         return new AdherentStatusWrapper(adherent, statut);
                     })
                     .collect(Collectors.toList());
@@ -329,9 +406,9 @@ public class AdherentsViewModel {
         });
     }
 
-    // ===========================================================
-    // =============== HISTORIQUE EMPRUNTS =======================
-    // ===========================================================
+    // ------------------------------------------------------------------------
+    // Historique des emprunts
+    // ------------------------------------------------------------------------
 
     public void loadHistoriqueFor(Adherent a) {
         Adherent target = (a != null)
@@ -359,9 +436,9 @@ public class AdherentsViewModel {
         return selectedAdherentHistorique;
     }
 
-    // ===========================================================
-    // =============== Helpers (Formulaire, Threading) ===========
-    // ===========================================================
+    // ------------------------------------------------------------------------
+    // Helpers (Formulaire)
+    // ------------------------------------------------------------------------
 
     /** Réinitialise tous les champs du formulaire. */
     private void clearForm() {
@@ -372,6 +449,8 @@ public class AdherentsViewModel {
         formTelephone.set("");
         formRole.set("");
         formPassword.set("");
+        formNewPassword.set("");
+        formForcePasswordChange.set(false);
     }
 
     /** Validation fine du formulaire (avec rôle + mot de passe en création). */
@@ -422,15 +501,20 @@ public class AdherentsViewModel {
             clearForm();
             return;
         }
+
         formId.set(a.getId() == null ? 0 : a.getId());
         formNom.set(nz(a.getNom()));
         formPrenom.set(nz(a.getPrenom()));
         formEmail.set(nz(a.getEmail()));
         formTelephone.set(nz(a.getTelephone()));
 
-        // En édition, on ne propose pas de changer le rôle ni le mot de passe ici
+        // En édition, on ne propose pas de changer le rôle ni le mot de passe temporaire ici
         formRole.set("");
         formPassword.set("");
+
+        // Et on reset aussi les champs liés à la modification de compte
+        formNewPassword.set("");
+        formForcePasswordChange.set(false);
     }
 
     /** Construit un modèle Adherent à partir des champs du formulaire (édition). */
@@ -460,9 +544,9 @@ public class AdherentsViewModel {
         return t.isEmpty() ? null : t;
     }
 
-    // ===========================================================
-    // =============== Threading / Erreurs =======================
-    // ===========================================================
+    // ------------------------------------------------------------------------
+    // Threading / Erreurs
+    // ------------------------------------------------------------------------
 
     private void runSafely(Runnable operation) {
         runSafely(operation, defaultErrorHandler());
@@ -473,7 +557,9 @@ public class AdherentsViewModel {
         setError("");
 
         CompletableFuture.runAsync(() -> {
-            if (adherentRepository == null || empruntRepository == null || penaliteRepository == null) {
+            if (adherentRepository == null
+                    || empruntRepository == null
+                    || penaliteRepository == null) {
                 throw new IllegalStateException("Un ou plusieurs repositories ne sont pas disponibles.");
             }
             operation.run();
@@ -522,9 +608,9 @@ public class AdherentsViewModel {
         return (msg != null && !msg.isBlank()) ? msg : root.toString();
     }
 
-    // ===========================================================
-    // =============== Exposition (UI Bind) ======================
-    // ===========================================================
+    // ------------------------------------------------------------------------
+    // Exposition (UI Bind)
+    // ------------------------------------------------------------------------
 
     public ObservableList<AdherentStatusWrapper> getItems() {
         return items;
@@ -550,13 +636,41 @@ public class AdherentsViewModel {
         selected.set(a);
     }
 
-    public LongProperty formIdProperty() { return formId; }
-    public StringProperty formNomProperty() { return formNom; }
-    public StringProperty formPrenomProperty() { return formPrenom; }
-    public StringProperty formEmailProperty() { return formEmail; }
-    public StringProperty formTelephoneProperty() { return formTelephone; }
-    public StringProperty formRoleProperty() { return formRole; }
-    public StringProperty formPasswordProperty() { return formPassword; }
+    public LongProperty formIdProperty() {
+        return formId;
+    }
+
+    public StringProperty formNomProperty() {
+        return formNom;
+    }
+
+    public StringProperty formPrenomProperty() {
+        return formPrenom;
+    }
+
+    public StringProperty formEmailProperty() {
+        return formEmail;
+    }
+
+    public StringProperty formTelephoneProperty() {
+        return formTelephone;
+    }
+
+    public StringProperty formRoleProperty() {
+        return formRole;
+    }
+
+    public StringProperty formPasswordProperty() {
+        return formPassword;
+    }
+
+    public StringProperty formNewPasswordProperty() {
+        return formNewPassword;
+    }
+
+    public BooleanProperty formForcePasswordChangeProperty() {
+        return formForcePasswordChange;
+    }
 
     public Adherent getSelectedAdherent() {
         return (selected.get() == null) ? null : selected.get().getAdherent();

@@ -26,9 +26,6 @@ public final class LandingController {
     @FXML
     private Button btnRegister;
 
-    @FXML
-    private Button btnGuestCatalogue;
-
     private AccountService accountService;
     private Navigator navigator;
 
@@ -46,8 +43,7 @@ public final class LandingController {
 
     @FXML
     private void initialize() {
-        // Rien à initialiser côté contenu : tout est dans le FXML.
-        // Tu peux éventuellement désactiver certains boutons si besoin.
+    	// Rien a initialiser.
     }
 
     // ================== Actions ==================
@@ -64,7 +60,6 @@ public final class LandingController {
 
     @FXML
     private void onRegisterClicked() {
-        // ⚠️ Vérifie que ce chemin correspond bien à ton FXML d'inscription adhérent
         switchScene("/application/ui/view/SignupAdherentView.fxml", controller -> {
             if (controller instanceof SignupAdherentController signupCtrl) {
                 if (accountService != null) signupCtrl.setAccountService(accountService);
@@ -72,25 +67,6 @@ public final class LandingController {
             }
         });
     }
-
-    @FXML
-    private void onGuestCatalogueClicked() {
-        // Si tu as déjà un Navigator.goToCatalogGuest(), appelle-le ici.
-        // En attendant, on met une alerte propre.
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Catalogue invité");
-        alert.setHeaderText("Mode invité");
-        alert.setContentText("""
-                La consultation du catalogue en mode invité
-                permet de parcourir les documents sans être connecté.
-
-                Fonctionnalité à brancher sur la vue Catalogue :
-                • Accès en lecture seule
-                • Pas d’emprunt possible
-                """);
-        alert.showAndWait();
-    }
-
     // ================== Helper ==================
 
     private void switchScene(String fxmlPath, Consumer<Object> controllerConfigurator) {

@@ -2,6 +2,7 @@ package application.infrastructure.sqlite;
 
 import application.domain.core.emprunt.Money;
 import application.domain.core.emprunt.Penalite;
+import application.domain.core.emprunt.PenaliteStatus;
 import application.domain.ports.repository.PenaliteRepository;
 
 import java.math.BigDecimal;
@@ -22,13 +23,13 @@ import java.util.*;
  *      date_debut  TEXT,
  *      date_fin    TEXT,
  *      description TEXT,
- *      status      TEXT NOT NULL DEFAULT 'ACTIVE'
+ *      status      TEXT NOT NULL DEFAULT 'DUE'
  *   )
  *
- * Remarque : le statut métier (DUE / PAID / CANCELLED / PAYMENT_REQUESTED)
- * n'est pas lu/écrit en base via la colonne status, mais déduit dans le domaine
- * à partir de dateGeneration / datePaiement. La colonne status peut rester
- * pour compat ou pour usage futur.
+ * Désormais :
+ * - le statut métier (DUE / PAID / CANCELLED / PAYMENT_REQUESTED / DEMANDE)
+ *   est lu/écrit dans la colonne "status".
+ * - la date_fin continue à marquer la date de paiement.
  */
 public class SqlitePenaliteRepository implements PenaliteRepository {
 
@@ -124,6 +125,7 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
             throw new RuntimeException("PENALITE.count failed", e);
         }
     }
+
     @Override
     public List<Penalite> findByAdherentId(long adherentId) {
         if (adherentId <= 0) {
@@ -159,7 +161,6 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
     // ==========================================
 
     /**
-     * {@inheritDoc}
      * Active = non payée en base, i.e. date_fin IS NULL.
      */
     @Override
@@ -191,7 +192,7 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
     }
 
     /**
-     * Utilitaire interne : retourne toutes les pénalités actives (date_fin IS NULL).
+     * Retourne toutes les pénalités actives (date_fin IS NULL).
      */
     public List<Penalite> findAllActives() {
         final String sql = "SELECT * FROM PENALITE WHERE date_fin IS NULL";
@@ -214,7 +215,6 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
     }
 
     /**
-     * {@inheritDoc}
      * Carte {adherent_id -> nb de pénalités actives (date_fin IS NULL)}.
      */
     @Override
@@ -244,16 +244,15 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
     }
 
     /**
-     * {@inheritDoc}
-     * Marque toutes les pénalités actives d'un adhérent comme payées
-     * (date_fin = datePaiement).
+     * Marque toutes les pénalités actives d'un adhérent comme payées (date_fin = datePaiement).
      */
     @Override
     public int reglerToutesPourAdherent(long adherentId, LocalDate datePaiement) {
         Objects.requireNonNull(datePaiement, "datePaiement");
         final String sql = """
             UPDATE PENALITE
-               SET date_fin = ?
+               SET date_fin = ?,
+                   status   = 'PAID'
              WHERE adherent_id = ?
                AND date_fin IS NULL
             """;
@@ -275,7 +274,7 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
     // =============================
 
     private Penalite insert(Penalite p) {
-        // Schéma : adherent_id, emprunt_id, type, montant, date_debut, date_fin, description
+        // Schéma : adherent_id, emprunt_id, type, montant, date_debut, date_fin, description, status
         final String sql = """
             INSERT INTO PENALITE(
                 adherent_id,
@@ -284,8 +283,9 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
                 montant,
                 date_debut,
                 date_fin,
-                description
-            ) VALUES (?,?,?,?,?,?,?)
+                description,
+                status
+            ) VALUES (?,?,?,?,?,?,?,?)
             """;
 
         try (Connection c = SqliteDataSource.getConnection();
@@ -315,7 +315,8 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
                    montant     = ?,
                    date_debut  = ?,
                    date_fin    = ?,
-                   description = ?
+                   description = ?,
+                   status      = ?
              WHERE penalite_id = ?
             """;
 
@@ -372,7 +373,19 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
         // description (null par défaut pour l'instant)
         ps.setString(i++, null);
 
+        // status (DUE / PAYMENT_REQUESTED / PAID / CANCELLED / DEMANDE)
+        ps.setString(i++, toDbStatus(p));
+
         return i;
+    }
+
+    private String toDbStatus(Penalite p) {
+        PenaliteStatus st = p.getStatus();
+        if (st != null) {
+            return st.name();
+        }
+        // Fallback : si pas de statut explicite, on déduit depuis datePaiement
+        return (p.getDatePaiement() != null) ? PenaliteStatus.PAID.name() : PenaliteStatus.DUE.name();
     }
 
     // =============================
@@ -383,6 +396,7 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
      * Reconstruit une {@link Penalite} depuis une ligne SQL.
      * Utilise le constructeur de persistance :
      * (id, empruntId, adherentId, Money, dateGeneration, datePaiement)
+     * puis applique, si possible, le statut lu en base.
      */
     private Penalite mapRowToPenalite(ResultSet rs) throws SQLException {
         Long id = rs.getLong("penalite_id");
@@ -415,8 +429,8 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
             return null;
         }
 
-        // Le statut métier (DUE / PAID) sera déduit à partir de datePaiement
-        return new Penalite(
+        // Création "standard" (déduira DUE / PAID depuis datePaiement)
+        Penalite p = new Penalite(
                 id,
                 empruntId,
                 adherentId,
@@ -424,6 +438,21 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
                 dateGeneration,
                 datePaiement
         );
+
+        // Lecture éventuelle du status en base
+        String statusStr = rs.getString("status");
+        if (statusStr != null && !statusStr.isBlank()) {
+            try {
+                PenaliteStatus status = PenaliteStatus.valueOf(statusStr.toUpperCase());
+                // Méthode à ajouter dans Penalite (voir plus bas)
+                p.overrideStatusFromPersistence(status);
+            } catch (IllegalArgumentException ex) {
+                // Valeur inconnue en base : on garde le statut déduit (DUE/PAID)
+                System.err.println("Statut de pénalité inconnu '" + statusStr + "' pour ID=" + id);
+            }
+        }
+
+        return p;
     }
 
     private static LocalDate parseLocalDate(String dateString) {

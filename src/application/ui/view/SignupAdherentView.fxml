@@ -1,71 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx/23.0.1"
-      xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="application.ui.viewmodel.controller.SignupAdherentController"
-      spacing="12"
-      alignment="CENTER"
-      prefWidth="420"
-      maxWidth="420">
+<VBox alignment="CENTER" maxWidth="420" prefWidth="420" spacing="12" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.SignupAdherentController">
 
     <padding>
-        <Insets top="20" right="20" bottom="20" left="20"/>
+        <Insets bottom="20" left="20" right="20" top="20" />
     </padding>
 
-    <Label text="Création d'un compte adhérent"
-           style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Label style="-fx-font-size: 18px; -fx-font-weight: bold;" text="Création d'un compte adhérent" />
 
-    <Label text="Remplissez ce formulaire pour créer votre compte."
-           wrapText="true"/>
+    <Label text="Remplissez ce formulaire pour créer votre compte." wrapText="true" />
 
-    <TextField fx:id="emailField"
-               promptText="Email"
-               maxWidth="Infinity"/>
+    <TextField fx:id="nomField" maxWidth="Infinity" promptText="Nom" />
 
-    <PasswordField fx:id="passwordField"
-                   promptText="Mot de passe (min. 6 caractères)"
-                   maxWidth="Infinity"/>
+    <TextField fx:id="prenomField" maxWidth="Infinity" promptText="Prénom" />
 
-    <!-- ✅ Champ manquant : confirmation du mot de passe -->
-    <PasswordField fx:id="confirmPasswordField"
-                   promptText="Confirmer le mot de passe"
-                   maxWidth="Infinity"/>
+    <TextField fx:id="emailField" maxWidth="Infinity" promptText="Email" />
 
-    <TextField fx:id="prenomField"
-               promptText="Prénom"
-               maxWidth="Infinity"/>
+    <PasswordField fx:id="passwordField" maxWidth="Infinity" promptText="Mot de passe (min. 6 caractères)" />
 
-    <TextField fx:id="nomField"
-               promptText="Nom"
-               maxWidth="Infinity"/>
+    <PasswordField fx:id="confirmPasswordField" maxWidth="Infinity" promptText="Confirmer le mot de passe" />
 
-    <Label fx:id="errorLabel"
-           visible="false"
-           managed="false"
-           style="-fx-text-fill: red;"
-           wrapText="true"/>
+    <Label fx:id="errorLabel" managed="false" style="-fx-text-fill: red;" visible="false" wrapText="true" />
 
-    <Label fx:id="infoLabel"
-           visible="false"
-           managed="false"
-           style="-fx-text-fill: green;"
-           wrapText="true"/>
+    <Label fx:id="infoLabel" managed="false" style="-fx-text-fill: green;" visible="false" wrapText="true" />
 
-    <HBox spacing="10" alignment="CENTER_RIGHT">
-        <Button fx:id="btnBack"
-                text="Retour à l'accueil"
-                onAction="#onBackToLandingClicked"/>
+    <HBox alignment="CENTER_RIGHT" spacing="10">
+        <Button fx:id="btnBack" onAction="#onBackToLandingClicked" styleClass="btn-danger" text="Retour à l'accueil" />
 
-        <Region HBox.hgrow="ALWAYS"/>
+        <Region HBox.hgrow="ALWAYS" />
 
-        <Button fx:id="btnCreate"
-                text="Créer mon compte"
-                defaultButton="true"
-                onAction="#onCreateClicked"/>
+        <Button fx:id="btnCreate" defaultButton="true" onAction="#onCreateClicked" styleClass="btn-primary" text="Créer mon compte" />
     </HBox>
 
 </VBox>

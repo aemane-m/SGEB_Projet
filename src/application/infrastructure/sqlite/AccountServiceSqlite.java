@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -481,6 +482,100 @@ public final class AccountServiceSqlite implements AccountService {
             // Ici tu peux gérer éventuellement les erreurs de FK
             // (si PERSONNE est référencée par EMPRUNT, etc.)
             throw new RuntimeException("AccountServiceSqlite.deleteAccount failed: " + msg, e);
+        }
+    }
+
+    @Override
+    public Optional<UserAccountSummary> findAccountByAdherentId(long adherentId) {
+        final String sql = """
+            SELECT
+                personne_id,
+                email,
+                isAdmin,
+                actif,
+                status,
+                password_must_change
+            FROM PERSONNE
+            WHERE personne_id = ? AND isAdmin = 0
+            """;
+
+        try (Connection c = SqliteDataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            ps.setLong(1, adherentId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return Optional.empty();
+                }
+
+                long userId = rs.getLong("personne_id");
+                String email = rs.getString("email");
+                boolean isAdmin = rs.getInt("isAdmin") == 1;
+                boolean actif = rs.getInt("actif") == 1;
+                String status = rs.getString("status");
+                boolean pwdMustChange = rs.getInt("password_must_change") == 1;
+
+                String roleName = isAdmin
+                        ? Role.adminRole().getName()
+                        : Role.adherentRole().getName();
+
+                Long adhId = isAdmin ? null : userId;
+
+                UserAccountSummary summary = new UserAccountSummary(
+                        userId,
+                        email,
+                        roleName,
+                        status,
+                        actif,
+                        pwdMustChange,
+                        adhId
+                );
+
+                return Optional.of(summary);
+            }
+
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            throw new RuntimeException("AccountServiceSqlite.findAccountByAdherentId failed: " + msg, e);
+        }
+    }
+
+    @Override
+    public void adminResetPassword(long targetUserId,
+                                   String rawPassword,
+                                   boolean forcePasswordChange) {
+
+        if (targetUserId <= 0) {
+            throw new IllegalArgumentException("userId invalide.");
+        }
+        Objects.requireNonNull(rawPassword, "rawPassword");
+        if (rawPassword.length() < 6) {
+            throw new IllegalArgumentException("Mot de passe trop court (min 6 caractères).");
+        }
+
+        final String sql = """
+            UPDATE PERSONNE
+            SET password_hash = ?,
+                password_must_change = ?
+            WHERE personne_id = ?
+            """;
+
+        try (Connection c = SqliteDataSource.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            ps.setString(1, placeholderHash_DO_NOT_USE_IN_PRODUCTION(rawPassword));
+            ps.setInt(2, forcePasswordChange ? 1 : 0);
+            ps.setLong(3, targetUserId);
+
+            int updated = ps.executeUpdate();
+            if (updated == 0) {
+                throw new IllegalStateException("Aucun compte trouvé pour id = " + targetUserId);
+            }
+
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            throw new RuntimeException("AccountServiceSqlite.adminResetPassword failed: " + msg, e);
         }
     }
 

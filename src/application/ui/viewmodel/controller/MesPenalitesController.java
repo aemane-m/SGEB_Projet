@@ -6,9 +6,11 @@ import application.ui.viewmodel.MesPenalitesViewModel;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.fxml.FXML;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 
+import java.net.URL;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
@@ -17,7 +19,7 @@ import java.util.Optional;
  *
  * - Liste des pénalités de l'adhérent.
  * - Colonne "Statut".
- * - Bouton "Demander paiement" si status == DUE (ou ACTIVE selon ton modèle).
+ * - Bouton "Demander paiement" si status == DUE / ACTIVE.
  */
 public final class MesPenalitesController {
 
@@ -34,7 +36,8 @@ public final class MesPenalitesController {
     @FXML private Button btnRefresh;
 
     private MesPenalitesViewModel viewModel;
-    private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private final DateTimeFormatter dateFormatter =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public MesPenalitesController() {}
 
@@ -49,12 +52,18 @@ public final class MesPenalitesController {
     @FXML
     private void initialize() {
         if (viewModel == null) {
-            throw new IllegalStateException("MesPenalitesViewModel doit être injecté dans MesPenalitesController.");
+            throw new IllegalStateException(
+                "MesPenalitesViewModel doit être injecté dans MesPenalitesController."
+            );
         }
 
         setupTable();
         bindUI();
     }
+
+    // ------------------------------------------------------------------------
+    // Table & colonnes
+    // ------------------------------------------------------------------------
 
     private void setupTable() {
         if (table == null) {
@@ -123,7 +132,9 @@ public final class MesPenalitesController {
         }
     }
 
-    // ================= Cellule "Demander paiement" =================
+    // ------------------------------------------------------------------------
+    // Cellule "Demander paiement"
+    // ------------------------------------------------------------------------
 
     private class ActionButtonCell extends TableCell<Penalite, Void> {
         private final Button btn = new Button("Demander paiement");
@@ -150,52 +161,95 @@ public final class MesPenalitesController {
             super.updateItem(item, empty);
             if (empty) {
                 setGraphic(null);
-            } else {
-                int index = getIndex();
-                if (index < 0 || index >= getTableView().getItems().size()) {
-                    setGraphic(null);
-                    return;
-                }
-
-                Penalite p = getTableView().getItems().get(index);
-                boolean show = isDue(p);
-                btn.setVisible(show);
-                btn.setManaged(show);
-                setGraphic(show ? box : null);
+                return;
             }
+
+            int index = getIndex();
+            if (index < 0 || index >= getTableView().getItems().size()) {
+                setGraphic(null);
+                return;
+            }
+
+            Penalite p = getTableView().getItems().get(index);
+            boolean show = isDue(p);
+            btn.setVisible(show);
+            btn.setManaged(show);
+            setGraphic(show ? box : null);
         }
     }
+
+    // ------------------------------------------------------------------------
+    // Boîte de dialogue stylée
+    // ------------------------------------------------------------------------
 
     private void confirmAndAskPayment(Penalite p) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle("Demande de paiement");
         alert.setHeaderText("Demander la mise en paiement de " + p.getMontant() + " ?");
-        alert.setContentText(
-            "Document : " + (p.getEmprunt() != null && p.getEmprunt().getDocument() != null
-                    ? p.getEmprunt().getDocument().getTitre()
-                    : "Inconnu")
-        );
 
-        ButtonType ok = new ButtonType("Confirmer", ButtonBar.ButtonData.OK_DONE);
-        ButtonType cancel = new ButtonType("Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
-        alert.getButtonTypes().setAll(ok, cancel);
+        String titreDoc = "Inconnu";
+        if (p.getEmprunt() != null && p.getEmprunt().getDocument() != null) {
+            titreDoc = safe(p.getEmprunt().getDocument().getTitre());
+        }
+        alert.setContentText("Document : " + titreDoc);
+
+        ButtonType btnConfirm = new ButtonType("Confirmer", ButtonBar.ButtonData.OK_DONE);
+        ButtonType btnCancel  = new ButtonType("Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(btnCancel, btnConfirm); // ordre : Annuler à gauche
+
+        DialogPane pane = alert.getDialogPane();
+        addTheme(pane);
+
+        // Style des boutons
+        styleAsPrimary(pane, btnConfirm);   // bouton bleu, par ex.
+        styleAsDanger(pane, btnCancel);     // bouton "danger" pour annuler
 
         Optional<ButtonType> res = alert.showAndWait();
-        if (res.isPresent() && res.get() == ok) {
+        if (res.isPresent() && res.get() == btnConfirm) {
             viewModel.demanderPaiement(p.getId());
         }
     }
 
-    // ================= Helpers =================
+    // ------------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------------
 
     private boolean isDue(Penalite p) {
         if (p == null || p.getStatus() == null) return false;
-        // Adapte selon ton enum : DUE / ACTIVE / etc.
-        return "ACTIVE".equalsIgnoreCase(p.getStatus().name())
-               || "DUE".equalsIgnoreCase(p.getStatus().name());
+        // Adapte si ton enum est différent
+        String name = p.getStatus().name();
+        return "ACTIVE".equalsIgnoreCase(name) || "DUE".equalsIgnoreCase(name);
     }
 
     private static String safe(String s) {
-        return (s == null || s.isBlank()) ? "—" : s;
+        return (s == null || s.isBlank()) ? "—" : s.trim();
+    }
+
+    private void addTheme(DialogPane pane) {
+        try {
+            URL css = getClass().getResource("/application/ui/css/style.css");
+            if (css != null) {
+                pane.getStylesheets().add(css.toExternalForm());
+                pane.getStyleClass().add("entity-dialog");
+            }
+        } catch (Exception e) {
+            System.err.println("Warning: Could not load CSS for MesPenalites dialog: " + e.getMessage());
+        }
+    }
+
+    private void styleAsPrimary(DialogPane pane, ButtonType type) {
+        Node node = pane.lookupButton(type);
+        if (node instanceof Button button) {
+            button.getStyleClass().addAll("btn", "btn-primary");
+            button.setDefaultButton(true);
+        }
+    }
+
+    private void styleAsDanger(DialogPane pane, ButtonType type) {
+        Node node = pane.lookupButton(type);
+        if (node instanceof Button button) {
+            button.getStyleClass().addAll("btn", "btn-danger");
+            button.setCancelButton(true);
+        }
     }
 }

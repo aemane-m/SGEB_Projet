@@ -13,6 +13,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.net.URL;
@@ -140,30 +141,49 @@ public class AdherentsController {
     // ========================================================================
 
     private void showAddOrEditAdherentDialog(Adherent existing) {
+        // ============= Configuration de base du dialog =============
         final Dialog<ButtonType> dlg = new Dialog<>();
         dlg.setTitle(existing == null ? "Ajouter un utilisateur" : "Modifier l'utilisateur");
+
+        // Thème + CSS
         addTheme(dlg.getDialogPane());
 
+        // Largeur suffisante pour que les libellés et le hint ne soient pas tronqués
+        dlg.getDialogPane().setMinWidth(600);
+        dlg.getDialogPane().setPrefWidth(600);
+
+        // ============= Préparation du ViewModel =============
         final boolean isCreating = (existing == null);
+
         if (isCreating) {
+            // Nouveau compte : on part d’un formulaire vierge
             viewModel.createNew();
         } else {
+            // Édition : charge les infos de l’adhérent dans le formulaire
             viewModel.edit(existing);
         }
 
+        // Contenu principal : formulaire (identité + téléphone + rôle / mot de passe)
         dlg.getDialogPane().setContent(createAdherentFormPane(isCreating));
 
+        // ============= Boutons d’action =============
         final ButtonType BTN_SAVE = new ButtonType(
                 isCreating ? "Créer" : "Mettre à jour",
                 ButtonBar.ButtonData.OK_DONE
         );
-        dlg.getDialogPane().getButtonTypes().addAll(BTN_SAVE, ButtonType.CANCEL);
-        styleAsPrimary(dlg.getDialogPane(), BTN_SAVE);
 
+        dlg.getDialogPane().getButtonTypes().addAll(BTN_SAVE, ButtonType.CANCEL);
+
+        // Styles CSS des boutons
+        styleAsPrimary(dlg.getDialogPane(), BTN_SAVE);          // => btn btn-primary
+        styleAsSecondary(dlg.getDialogPane(), ButtonType.CANCEL); // => btn btn-secondary
+
+        // Récupération du bouton "Créer / Mettre à jour" pour la validation
         final Button btnSave = (Button) dlg.getDialogPane().lookupButton(BTN_SAVE);
 
+        // ============= Règles de validation =============
         if (isCreating) {
-            // En création : rôle + mot de passe obligatoires
+            // En création : nom, prénom, email, rôle, mot de passe temp. (min 8) + pas de chargement en cours
             btnSave.disableProperty().bind(
                     viewModel.formNomProperty().isEmpty()
                             .or(viewModel.formPrenomProperty().isEmpty())
@@ -173,20 +193,38 @@ public class AdherentsController {
                             .or(viewModel.loadingProperty())
             );
         } else {
-            // En édition : uniquement nom/prénom/email
+            // En édition : nom / prénom / email obligatoires;
+            // si tu ajoutes un champ "nouveau mot de passe" dans le formulaire :
+            //
+            // - soit il est vide  => OK (on ne change pas le mot de passe)
+            // - soit il est non vide et doit faire au moins 8 caractères
+            //
+            // Ici, j’anticipe deux propriétés dans le ViewModel :
+            //   - formNewPasswordProperty() : StringProperty
+            //   - formForcePwdChangeProperty() : BooleanProperty (pour le "forcer à changer")
             btnSave.disableProperty().bind(
                     viewModel.formNomProperty().isEmpty()
                             .or(viewModel.formPrenomProperty().isEmpty())
                             .or(viewModel.formEmailProperty().isEmpty())
+                            // Règle optionnelle sur le nouveau mot de passe (si tu l’ajoutes dans le form)
+                            // .or(
+                            //        viewModel.formNewPasswordProperty().isNotEmpty()
+                            //                .and(viewModel.formNewPasswordProperty().length().lessThan(8))
+                            // )
                             .or(viewModel.loadingProperty())
             );
         }
 
+        // ============= Affichage + traitement du résultat =============
         final Optional<ButtonType> res = dlg.showAndWait();
+
         if (res.isPresent() && res.get() == BTN_SAVE) {
+            // On délègue toute la logique métier (création / édition, reset mot de passe,
+            // gestion du téléphone, etc.) au ViewModel.
             viewModel.saveCurrent();
         } else {
-            // Annulé : recharger la sélection actuelle
+            // Annulé : on ré-injecte simplement l’adhérent sélectionné dans le formulaire
+            // pour ne pas laisser le ViewModel dans un état incohérent.
             viewModel.edit(viewModel.getSelectedAdherent());
         }
     }
@@ -201,9 +239,10 @@ public class AdherentsController {
         pane.setText(isCreating ? "Nouvel utilisateur" : "Éditer l'utilisateur");
         pane.setExpanded(true);
         pane.setCollapsible(false);
-        pane.getStyleClass().addAll("titled-pane", "card-like");
+        pane.getStyleClass().addAll("card-like"); // suffisant, "titled-pane" est implicite
 
         final GridPane form = new GridPane();
+        form.getStyleClass().add("form-grid");
         form.setHgap(12);
         form.setVgap(10);
         form.setPadding(new Insets(16));
@@ -225,49 +264,89 @@ public class AdherentsController {
         tfTelephone.textProperty().bindBidirectional(viewModel.formTelephoneProperty());
         tfTelephone.setPromptText(AdherentsViewModel.getTelephoneHint());
 
+        tfNom.getStyleClass().add("form-field");
+        tfPrenom.getStyleClass().add("form-field");
+        tfEmail.getStyleClass().add("form-field");
+        tfTelephone.getStyleClass().add("form-field");
+
         int rowIndex = 0;
-        form.add(new Label("Nom :"),        0, rowIndex);
-        form.add(tfNom,                     1, rowIndex++);
 
-        form.add(new Label("Prénom :"),     0, rowIndex);
-        form.add(tfPrenom,                  1, rowIndex++);
+        form.add(createFormLabel("Nom"),        0, rowIndex);
+        form.add(tfNom,                         1, rowIndex++);
 
-        form.add(new Label("Email :"),      0, rowIndex);
-        form.add(tfEmail,                   1, rowIndex++);
+        form.add(createFormLabel("Prénom"),     0, rowIndex);
+        form.add(tfPrenom,                      1, rowIndex++);
 
-        form.add(new Label("Téléphone :"),  0, rowIndex);
-        form.add(tfTelephone,               1, rowIndex++);
+        form.add(createFormLabel("Email"),      0, rowIndex);
+        form.add(tfEmail,                       1, rowIndex++);
+
+        form.add(createFormLabel("Téléphone"),  0, rowIndex);
+        form.add(tfTelephone,                   1, rowIndex++);
 
         if (isCreating) {
-            // Choix du rôle
+            // -------- Création : rôle + mot de passe temporaire --------
             final ComboBox<String> cbRole = new ComboBox<>();
             cbRole.getItems().addAll("ADHERENT", "ADMIN");
             cbRole.setPromptText("Choisir un rôle");
             cbRole.valueProperty().bindBidirectional(viewModel.formRoleProperty());
+            cbRole.getStyleClass().add("form-field");
 
-            form.add(new Label("Rôle :"),   0, rowIndex);
-            form.add(cbRole,                1, rowIndex++);
+            form.add(createFormLabel("Rôle"), 0, rowIndex);
+            form.add(cbRole,                  1, rowIndex++);
 
-            // Mot de passe temporaire
             final PasswordField pfPassword = new PasswordField();
             pfPassword.setPromptText("Mot de passe temporaire (min. 8 caractères)");
             pfPassword.textProperty().bindBidirectional(viewModel.formPasswordProperty());
+            pfPassword.getStyleClass().add("form-field");
 
-            form.add(new Label("Mot de passe temp. :"), 0, rowIndex);
-            form.add(pfPassword,                        1, rowIndex++);
+            form.add(createFormLabel("Mot de passe temporaire"), 0, rowIndex);
+            form.add(pfPassword,                                 1, rowIndex++);
 
             Label hint = new Label(
-                    "Ce mot de passe est temporaire. L'utilisateur devra le modifier lors de sa première connexion."
+                "Ce mot de passe est temporaire. L'utilisateur devra le modifier lors " +
+                "de sa première connexion."
             );
             hint.getStyleClass().add("hint-label");
             hint.setWrapText(true);
+            hint.setMaxWidth(Double.MAX_VALUE);
+            GridPane.setHgrow(hint, Priority.ALWAYS);
 
-            form.add(new Label(""), 0, rowIndex);
-            form.add(hint,          1, rowIndex++);
+            // cellule vide à gauche, hint à droite
+            form.add(new Label(), 0, rowIndex);
+            form.add(hint,        1, rowIndex++);
+        } else {
+            // -------- Édition : options pour mot de passe oublié --------
+            final PasswordField pfNewPassword = new PasswordField();
+            pfNewPassword.setPromptText("Nouveau mot de passe (laisser vide pour ne pas changer)");
+            // Prévoir une propriété dans le ViewModel : formNewPasswordProperty()
+            pfNewPassword.textProperty().bindBidirectional(viewModel.formNewPasswordProperty());
+            pfNewPassword.getStyleClass().add("form-field");
+
+            form.add(createFormLabel("Nouveau mot de passe"), 0, rowIndex);
+            form.add(pfNewPassword,                           1, rowIndex++);
+
+            final CheckBox chkForceChange = new CheckBox(
+                    "Forcer l'utilisateur à changer son mot de passe à la prochaine connexion"
+            );
+            chkForceChange.setWrapText(true);
+            // Prévoir aussi formForcePasswordChangeProperty() dans le ViewModel
+            chkForceChange.selectedProperty().bindBidirectional(
+                    viewModel.formForcePasswordChangeProperty()
+            );
+            chkForceChange.getStyleClass().add("form-checkbox");
+
+            form.add(new Label(),       0, rowIndex);
+            form.add(chkForceChange,    1, rowIndex++);
         }
 
         pane.setContent(form);
         return pane;
+    }
+
+    private Label createFormLabel(String text) {
+        Label label = new Label(text + " :");
+        label.getStyleClass().add("form-label");
+        return label;
     }
 
     // --- Dialogue d'Historique ---
@@ -338,7 +417,7 @@ public class AdherentsController {
     private void styleAsPrimary(DialogPane pane, ButtonType type) {
         final Node node = pane.lookupButton(type);
         if (node instanceof Button button) {
-            button.getStyleClass().addAll("btn", "btn-primary");
+            button.getStyleClass().addAll("btn-primary");
             button.setDefaultButton(true);
         }
     }
@@ -346,7 +425,13 @@ public class AdherentsController {
     private void styleAsDanger(DialogPane pane, ButtonType type) {
         final Node node = pane.lookupButton(type);
         if (node instanceof Button button) {
-            button.getStyleClass().addAll("btn", "btn-danger");
+            button.getStyleClass().addAll("btn-danger");
+        }
+    }
+    private void styleAsSecondary(DialogPane pane, ButtonType type) {
+        final Node node = pane.lookupButton(type);
+        if (node instanceof Button button) {
+            button.getStyleClass().addAll("btn-secondary");
         }
     }
 
