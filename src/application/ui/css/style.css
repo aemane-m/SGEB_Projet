@@ -573,3 +573,18 @@
     -fx-background-color: transparent;
 }
 
+.product-card-empty {
+    -fx-opacity: 0.6;
+}
+
+.product-cover-placeholder {
+    -fx-background-color: derive(-card-bg, -10%);
+    -fx-border-color: -border-subtle;
+    -fx-border-radius: 8;
+}
+
+.product-placeholder-label {
+    -fx-text-fill: -muted-fg;
+    -fx-font-style: italic;
+}
+

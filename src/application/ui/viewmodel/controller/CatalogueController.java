@@ -620,12 +620,22 @@ public class CatalogueController {
 
         // Zone jaquette : aperçu + bouton Choisir
         ImageView coverPreview = new ImageView();
-        coverPreview.setFitHeight(80);
-        coverPreview.setPreserveRatio(false);
+
+        // "boîte" de preview : 120x160 max, centrée
+        coverPreview.setFitWidth(120);
+        coverPreview.setFitHeight(160);
+        coverPreview.setPreserveRatio(true);
         coverPreview.setSmooth(true);
-        Button btnChooseCover = new Button("Choisir une image...");
+        coverPreview.setCache(true);
+
+        // Bouton pour choisir l'image
+        Button btnChooseCover = new Button("Choisir une image…");
+
+        // HBox contenant preview + bouton, avec largeur limitée
         HBox coverBox = new HBox(10, coverPreview, btnChooseCover);
         coverBox.setAlignment(Pos.CENTER_LEFT);
+        coverBox.setPrefWidth(280);
+        coverBox.setMaxWidth(280);     
 
         // Charger jaquette existante (édition)
         if (existing != null && existing.getCoverRef() != null) {
@@ -751,53 +761,44 @@ public class CatalogueController {
     }
 
     /** Met à jour l’aperçu de jaquette dans le formulaire. */
+    /** Met à jour l’aperçu de jaquette dans le formulaire. */
     private void updateCoverPreview(ImageView imageView, String path, boolean isLocalAbsolutePath) {
         if (path == null || path.isBlank()) {
             imageView.setImage(null);
             return;
         }
         try {
-            String imageUrl;
             File imageFile = new File(path);
-
-            if (isLocalAbsolutePath) {
-                if (imageFile.exists() && imageFile.isFile()) {
-                    imageUrl = imageFile.toURI().toString();
-                } else {
-                    imageUrl = null;
-                    System.err.println("Aperçu : Fichier local choisi non trouvé : " + path);
-                }
-            } else {
-                if (imageFile.exists() && imageFile.isFile()) {
-                    imageUrl = imageFile.toURI().toString();
-                } else {
-                    imageUrl = null;
-                    System.err.println("Aperçu : Fichier image BDD non trouvé : " + path);
-                }
+            if (!imageFile.exists() || !imageFile.isFile()) {
+                System.err.println("Aperçu : fichier non trouvé : " + path);
+                imageView.setImage(null);
+                return;
             }
 
-            if (imageUrl != null) {
-                Image img = new Image(imageUrl, true);
-                imageView.setImage(img);
-                img.errorProperty().addListener((obs, old, err) -> {
-                    if (err) {
-                        System.err.println("Erreur chargement aperçu: " + imageUrl);
-                        imageView.setImage(null);
-                    }
-                });
-                if (img.isError()) {
-                    System.err.println("Erreur immédiate chargement aperçu: " + imageUrl);
+            String imageUrl = imageFile.toURI().toString();
+
+            // On demande directement une version réduite (max 120x160)
+            Image img = new Image(
+                    imageUrl,
+                    120,   // requestedWidth
+                    160,   // requestedHeight
+                    true,  // preserveRatio
+                    true   // smooth
+            );
+
+            imageView.setImage(img);
+
+            img.errorProperty().addListener((obs, old, err) -> {
+                if (err) {
+                    System.err.println("Erreur chargement aperçu: " + imageUrl);
                     imageView.setImage(null);
                 }
-            } else {
-                imageView.setImage(null);
-            }
+            });
         } catch (Exception e) {
             imageView.setImage(null);
             System.err.println("Erreur mise à jour aperçu : " + path + " - " + e.getMessage());
         }
     }
-
     /** Construit la section des champs spécifiques selon le type. */
     private Node buildSpecificPaneFor(String type,
                                       TextField tfAuteur, TextField tfIsbn, Spinner<Integer> spPages,

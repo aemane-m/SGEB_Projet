@@ -14,61 +14,47 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * ViewModel pour la vue "Mes emprunts" côté adhérent.
  *
  * - Filtre systématiquement sur l'adhérent courant (adherentId).
  * - Permet de basculer entre emprunts actifs et historique complet.
- * - Expose la liste des documents pour que l'adhérent puisse emprunter
- *   (les règles métier restent dans EmpruntService).
+ * - N'affiche que les documents disponibles (non empruntés) pour l'emprunt.
+ * - Fait remonter les messages d'erreur (quota, pénalités, etc.) et de succès.
  */
 public final class MesEmpruntsViewModel {
 
     private final EmpruntService empruntService;
-    private final AdherentRepository adherentRepository;   // éventuellement non utilisé
+    private final AdherentRepository adherentRepository;
     private final DocumentRepository documentRepository;
 
-    /** Id de l'adhérent courant (session). */
     private long adherentId;
 
-    /** Liste affichée dans la TableView. */
-    private final ObservableList<Emprunt> emprunts =
-            FXCollections.observableArrayList();
+    private final ObservableList<Emprunt> emprunts = FXCollections.observableArrayList();
+    private final ObservableList<Document> availableDocuments = FXCollections.observableArrayList();
 
-    /** Liste des documents que l'on propose à l'adhérent (tous ou filtrés). */
-    private final ObservableList<Document> availableDocuments =
-            FXCollections.observableArrayList();
-
-    /** État UI. */
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final StringProperty  error   = new SimpleStringProperty("");
+    private final StringProperty  success = new SimpleStringProperty("");
 
-    /** Filtre : true = uniquement actifs, false = historique complet. */
     private final BooleanProperty actifsOnly = new SimpleBooleanProperty(true);
 
-    // ------------------------------------------------------------------------
-    // Constructeurs
-    // ------------------------------------------------------------------------
+    // ------------------ constructeurs ------------------
 
-    /** Constructeur minimal. */
     public MesEmpruntsViewModel(EmpruntService empruntService) {
         this(empruntService, null, null, null);
     }
 
-    /**
-     * Constructeur complet utilisé par l'injection / Navigator.
-     */
     public MesEmpruntsViewModel(EmpruntService empruntService,
                                 AdherentRepository adherentRepository,
                                 DocumentRepository documentRepository,
                                 Long adherentId) {
-
         this.empruntService = Objects.requireNonNull(empruntService, "empruntService");
         this.adherentRepository = adherentRepository;
         this.documentRepository = documentRepository;
 
-        // Quand on change le filtre, on recharge la liste
         actifsOnly.addListener((obs, ov, nv) -> refresh());
 
         if (adherentId != null && adherentId > 0) {
@@ -78,9 +64,6 @@ public final class MesEmpruntsViewModel {
         }
     }
 
-    /**
-     * À appeler une fois que l'on connaît l'id de l'adhérent courant (session).
-     */
     public void loadForAdherent(long adherentId) {
         if (adherentId <= 0) {
             throw new IllegalArgumentException("adherentId invalide : " + adherentId);
@@ -90,85 +73,45 @@ public final class MesEmpruntsViewModel {
         refreshAvailableDocuments();
     }
 
-    // ------------------------------------------------------------------------
-    // Chargement des emprunts
-    // ------------------------------------------------------------------------
+    // ------------------ refresh emprunts ------------------
 
-    /** Recharge la liste des emprunts pour l'adhérent courant. */
     public void refresh() {
         if (adherentId <= 0) {
-            // Pas encore initialisé
             return;
         }
 
-        setLoading(true);
-        setError("");
+        runSafely(() -> {
+            List<Emprunt> list = actifsOnly.get()
+                    ? empruntService.findActiveByAdherentId(adherentId)
+                    : empruntService.findByAdherentId(adherentId);
 
-        CompletableFuture
-                .supplyAsync(() -> {
-                    // ⚠️ IMPORTANT : on retourne toujours quelque chose
-                    if (actifsOnly.get()) {
-                        return empruntService.findActiveByAdherentId(adherentId);
-                    } else {
-                        return empruntService.findByAdherentId(adherentId);
-                    }
-                })
-                .whenComplete((list, ex) -> {
-                    Platform.runLater(() -> {
-                        if (ex != null) {
-                            setError(getRootCauseMessage(ex));
-                            emprunts.clear();
-                        } else {
-                            List<Emprunt> safeList = (list != null) ? list : List.of();
-                            emprunts.setAll(safeList);
-                        }
-                        setLoading(false);
-                    });
-                });
+            List<Emprunt> safeList = (list != null) ? list : List.of();
+            Platform.runLater(() -> emprunts.setAll(safeList));
+        });
     }
 
-    // ------------------------------------------------------------------------
-    // Chargement des documents affichés à l'adhérent pour emprunt
-    // ------------------------------------------------------------------------
+    // ------------------ docs disponibles ------------------
 
-    /**
-     * Recharge la liste des documents à afficher dans la ComboBox côté adhérent.
-     *
-     * Ici, on utilise simplement `findAll()`. Les règles métier (disponibilité,
-     * quotas, pénalités, etc.) sont vérifiées dans EmpruntService.borrow().
-     */
     public void refreshAvailableDocuments() {
         if (documentRepository == null) {
             availableDocuments.clear();
             return;
         }
 
-        setLoading(true);
-        setError("");
+        runSafely(() -> {
+            List<Document> allDocs = documentRepository.findAll();
+            List<Document> disponibles = (allDocs != null ? allDocs : List.<Document>of())
+                    .stream()
+                    .filter(doc -> doc.getId() != null
+                            && !empruntService.isDocumentEmprunte(doc.getId()))
+                    .collect(Collectors.toList());
 
-        CompletableFuture
-                .supplyAsync(() -> {
-                    // ⚠️ IMPORTANT : on retourne une liste
-                    return documentRepository.findAll();
-                })
-                .whenComplete((list, ex) -> {
-                    Platform.runLater(() -> {
-                        if (ex != null) {
-                            setError(getRootCauseMessage(ex));
-                            availableDocuments.clear();
-                        } else {
-                            List<Document> safeList = (list != null) ? list : List.of();
-                            availableDocuments.setAll(safeList);
-                        }
-                        setLoading(false);
-                    });
-                });
+            Platform.runLater(() -> availableDocuments.setAll(disponibles));
+        });
     }
 
-    /**
-     * Demande d'emprunt pour l'adhérent courant.
-     * Appelée par le contrôleur lorsqu'il clique sur "Emprunter".
-     */
+    // ------------------ borrow adhérent ------------------
+
     public void borrowForCurrentAdherent(Document document, LocalDate dateEmprunt) {
         if (adherentId <= 0) {
             reportError("Session adhérent inconnue : impossible de créer un emprunt.");
@@ -184,63 +127,56 @@ public final class MesEmpruntsViewModel {
         }
 
         setError("");
+        setSuccess("");
+
+        runSafely(() -> {
+            Emprunt created = empruntService.borrow(adherentId, document.getId(), dateEmprunt);
+
+            Platform.runLater(() -> {
+                if (created != null && created.getId() != null) {
+                    setSuccess("Emprunt enregistré (ID: " + created.getId() + ").");
+                } else {
+                    setError("Échec de la création de l'emprunt.");
+                }
+                refresh();
+                refreshAvailableDocuments();
+            });
+        });
+    }
+
+    // ------------------ bindings exposés ------------------
+
+    public ObservableList<Emprunt> getEmprunts() { return emprunts; }
+    public ObservableList<Document> getAvailableDocuments() { return availableDocuments; }
+
+    public ReadOnlyBooleanProperty loadingProperty() { return loading; }
+    public ReadOnlyStringProperty errorProperty()   { return error; }
+    public ReadOnlyStringProperty successProperty() { return success; }
+
+    public BooleanProperty actifsOnlyProperty() { return actifsOnly; }
+    public boolean isActifsOnly() { return actifsOnly.get(); }
+    public void setActifsOnly(boolean value) { actifsOnly.set(value); }
+
+    public void reportError(String message) { setError(message); }
+
+    // ------------------ helpers async / erreurs ------------------
+
+    private void runSafely(Runnable op) {
+        setLoading(true);
+        setError("");
+        setSuccess("");
 
         CompletableFuture
-                .runAsync(() -> {
-                    // 👉 Les règles métier sont implémentées dans le service.
-                    empruntService.borrow(adherentId, document.getId(), dateEmprunt);
-                })
-                .whenComplete((ignored, ex) -> {
-                    Platform.runLater(() -> {
-                        if (ex != null) {
-                            setError(getRootCauseMessage(ex));
-                        }
-                        // On rafraîchit la liste et les documents proposés
-                        refresh();
-                        refreshAvailableDocuments();
-                    });
+            .runAsync(op)
+            .whenComplete((res, ex) -> {
+                Platform.runLater(() -> {
+                    if (ex != null) {
+                        setError(getRootCauseMessage(ex));
+                    }
+                    setLoading(false);
                 });
+            });
     }
-
-    // ------------------------------------------------------------------------
-    // Exposition (bindings UI)
-    // ------------------------------------------------------------------------
-
-    public ObservableList<Emprunt> getEmprunts() {
-        return emprunts;
-    }
-
-    public ObservableList<Document> getAvailableDocuments() {
-        return availableDocuments;
-    }
-
-    public ReadOnlyBooleanProperty loadingProperty() {
-        return loading;
-    }
-
-    public ReadOnlyStringProperty errorProperty() {
-        return error;
-    }
-
-    public BooleanProperty actifsOnlyProperty() {
-        return actifsOnly;
-    }
-
-    public boolean isActifsOnly() {
-        return actifsOnly.get();
-    }
-
-    public void setActifsOnly(boolean value) {
-        actifsOnly.set(value);
-    }
-
-    public void reportError(String message) {
-        setError(message);
-    }
-
-    // ------------------------------------------------------------------------
-    // Helpers internes
-    // ------------------------------------------------------------------------
 
     private void setLoading(boolean value) {
         if (Platform.isFxApplicationThread()) {
@@ -256,6 +192,15 @@ public final class MesEmpruntsViewModel {
             error.set(safe);
         } else {
             Platform.runLater(() -> error.set(safe));
+        }
+    }
+
+    private void setSuccess(String message) {
+        String safe = (message == null) ? "" : message;
+        if (Platform.isFxApplicationThread()) {
+            success.set(safe);
+        } else {
+            Platform.runLater(() -> success.set(safe));
         }
     }
 

@@ -23,7 +23,7 @@ public final class ChangePasswordController {
 
     private AccountService accountService;
     private UserSession currentSession;
-    private Navigator navigator;   // <-- NEW
+    private Navigator navigator;
 
     public void setAccountService(AccountService accountService) {
         this.accountService = accountService;

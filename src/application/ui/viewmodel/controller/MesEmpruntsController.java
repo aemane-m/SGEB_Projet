@@ -31,6 +31,7 @@ public final class MesEmpruntsController {
     @FXML private CheckBox chkActifsOnly;
     @FXML private ProgressIndicator progress;
     @FXML private Label errorLabel;
+    @FXML private Label successLabel;
     @FXML private Button btnRefresh;
 
     // --- Zone d’emprunt adhérent ---
@@ -62,7 +63,7 @@ public final class MesEmpruntsController {
 
         setupTable();
         bindUI();
-        setupBorrowSection();   // <--- nouveau
+        setupBorrowSection();
     }
 
     // ----------------------------------------------------------------
@@ -97,17 +98,18 @@ public final class MesEmpruntsController {
 
         colStatut.setCellValueFactory(cd ->
             new ReadOnlyStringWrapper(
-                cd.getValue().statut(java.time.LocalDate.now()).name()
+                cd.getValue().statut(LocalDate.now()).name()
             )
         );
     }
 
     // ----------------------------------------------------------------
-    // Bindings généraux (filtres, erreurs, refresh)
+    // Bindings généraux (filtres, erreurs, succès, refresh)
     // ----------------------------------------------------------------
 
     private void bindUI() {
         if (chkActifsOnly != null) {
+            // Lien bidirectionnel avec le filtre du ViewModel
             chkActifsOnly.selectedProperty().bindBidirectional(viewModel.actifsOnlyProperty());
         }
 
@@ -118,13 +120,30 @@ public final class MesEmpruntsController {
 
         if (errorLabel != null) {
             errorLabel.textProperty().bind(viewModel.errorProperty());
-            errorLabel.visibleProperty().bind(viewModel.errorProperty().isNotEmpty());
+            // Visible seulement si erreur non vide et pas de message de succès
+            errorLabel.visibleProperty().bind(
+                viewModel.errorProperty().isNotEmpty()
+                    .and(viewModel.successProperty().isEmpty())
+            );
             errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+        }
+
+        if (successLabel != null) {
+            successLabel.textProperty().bind(viewModel.successProperty());
+            // Visible seulement si succès non vide et pas d'erreur
+            successLabel.visibleProperty().bind(
+                viewModel.successProperty().isNotEmpty()
+                    .and(viewModel.errorProperty().isEmpty())
+            );
+            successLabel.managedProperty().bind(successLabel.visibleProperty());
         }
 
         if (btnRefresh != null) {
             btnRefresh.disableProperty().bind(viewModel.loadingProperty());
-            btnRefresh.setOnAction(e -> viewModel.refresh());
+            btnRefresh.setOnAction(e -> {
+                viewModel.refresh();
+                viewModel.refreshAvailableDocuments();
+            });
         }
     }
 
@@ -134,11 +153,12 @@ public final class MesEmpruntsController {
 
     private void setupBorrowSection() {
         if (cbDocumentDisponible == null || dpDateEmprunt == null || btnBorrow == null) {
-            // Si tu testes la vue dans SceneBuilder sans ces champs, on évite un NPE
+            // Si on ouvre la vue dans SceneBuilder sans tout initialiser
             return;
         }
 
-        // Liste des documents disponibles pour CET adhérent
+        // Liste des documents disponibles (déjà filtrés dans le ViewModel
+        // pour ne proposer que les documents non empruntés / autorisés)
         cbDocumentDisponible.setItems(viewModel.getAvailableDocuments());
 
         cbDocumentDisponible.setConverter(new StringConverter<>() {
@@ -152,21 +172,18 @@ public final class MesEmpruntsController {
 
             @Override
             public Document fromString(String s) {
-                return null; // pas utilisé
+                return null; // non utilisé
             }
         });
 
         // Date d’emprunt par défaut : aujourd’hui
         dpDateEmprunt.setValue(LocalDate.now());
 
-        // Désactivation du bouton si :
-        // - chargement en cours
-        // - aucun document sélectionné
-        // - aucune date sélectionnée
+        // Bouton désactivé si chargement OU pas de document OU pas de date
         btnBorrow.disableProperty().bind(
-                viewModel.loadingProperty()
-                        .or(cbDocumentDisponible.valueProperty().isNull())
-                        .or(dpDateEmprunt.valueProperty().isNull())
+            viewModel.loadingProperty()
+                .or(cbDocumentDisponible.valueProperty().isNull())
+                .or(dpDateEmprunt.valueProperty().isNull())
         );
 
         btnBorrow.setOnAction(e -> {
@@ -174,17 +191,20 @@ public final class MesEmpruntsController {
             LocalDate dateEmprunt = dpDateEmprunt.getValue();
 
             if (doc == null || dateEmprunt == null) {
-                // Par sécurité, même si c'est déjà filtré par le disableProperty
+                // Sécurité supplémentaire (au cas où le binding serait cassé)
                 viewModel.reportError("Veuillez choisir un document et une date d'emprunt.");
                 return;
             }
 
+            // Toutes les règles métier (limite de prêts, pénalités non payées, etc.)
+            // sont levées sous forme d'exceptions par EmpruntService.borrow(...)
+            // et remontent dans viewModel.errorProperty(), donc visibles ici.
             viewModel.borrowForCurrentAdherent(doc, dateEmprunt);
         });
     }
 
     // --- Helpers locaux ---
-    private static String toIso(java.time.LocalDate d) {
+    private static String toIso(LocalDate d) {
         return (d == null) ? "—" : d.toString();
     }
 

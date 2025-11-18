@@ -12,57 +12,137 @@
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.Region?>
 <?import javafx.scene.text.Font?>
+<?import java.lang.String?>
 
-<BorderPane prefHeight="549.0" prefWidth="835.0" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.MesEmpruntsController">
+<BorderPane prefHeight="549.0" prefWidth="835.0"
+            stylesheets="@../css/style.css"
+            xmlns="http://javafx.com/javafx/23.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="application.ui.viewmodel.controller.MesEmpruntsController">
 
-    <!-- Barre du haut : filtres + refresh -->
+    <!-- Barre du haut : titre + filtre + refresh -->
     <top>
-        <HBox spacing="8">
+        <VBox spacing="8">
             <padding>
                 <Insets bottom="10" left="10" right="10" top="10" />
             </padding>
-            <children>
-                <CheckBox fx:id="chkActifsOnly" text="Afficher uniquement les emprunts en cours" />
-                <Button fx:id="btnRefresh" styleClass="btn-primary" text="Rafraîchir" />
-                <ProgressIndicator fx:id="progress" prefHeight="20" prefWidth="20" />
-            </children>
-        </HBox>
+
+            <!-- Titre, comme côté admin -->
+            <HBox spacing="10">
+                <children>
+                    <Label text="Mes emprunts" styleClass="title" />
+                    <Region HBox.hgrow="ALWAYS" />
+                </children>
+            </HBox>
+
+            <!-- Filtres + Refresh -->
+            <HBox spacing="8" alignment="CENTER_LEFT">
+                <children>
+                    <CheckBox fx:id="chkActifsOnly"
+                              text="Afficher uniquement les emprunts en cours" />
+
+                    <Region HBox.hgrow="ALWAYS" />
+
+                    <!-- Indicateur de chargement, style neutre, géré par le contrôleur -->
+                    <ProgressIndicator fx:id="progress"
+                                       prefHeight="20.0" prefWidth="20.0"
+                                       visible="false" managed="false" />
+
+                    <Button fx:id="btnRefresh" text="Rafraîchir">
+                        <styleClass>
+                            <String fx:value="btn" />
+                            <String fx:value="btn-secondary" />
+                        </styleClass>
+                    </Button>
+                </children>
+            </HBox>
+        </VBox>
     </top>
 
     <!-- Centre : table des emprunts -->
     <center>
-        <TableView fx:id="table">
+        <TableView fx:id="table" BorderPane.alignment="CENTER">
             <columns>
-                <TableColumn fx:id="colDocument" prefWidth="179.0" resizable="false" text="Document" />
-                <TableColumn fx:id="colDateEmprunt" prefWidth="137.5" resizable="false" text="Date d'emprunt" />
-                <TableColumn fx:id="colDatePrevue" minWidth="3.0" prefWidth="150.0" resizable="false" text="Retour prévu" />
-                <TableColumn fx:id="colDateRetour" prefWidth="170.84823608398438" resizable="false" text="Retour effectif" />
-                <TableColumn fx:id="colStatut" prefWidth="195.5" resizable="false" text="Statut" />
+                <TableColumn fx:id="colDocument"
+                             prefWidth="180.0"
+                             resizable="false"
+                             text="Document" />
+                <TableColumn fx:id="colDateEmprunt"
+                             prefWidth="140.0"
+                             resizable="false"
+                             text="Date d'emprunt" />
+                <TableColumn fx:id="colDatePrevue"
+                             prefWidth="150.0"
+                             resizable="false"
+                             text="Retour prévu" />
+                <TableColumn fx:id="colDateRetour"
+                             prefWidth="170.0"
+                             resizable="false"
+                             text="Retour effectif" />
+                <TableColumn fx:id="colStatut"
+                             prefWidth="195.0"
+                             resizable="false"
+                             text="Statut" />
             </columns>
+
+            <!-- Resize propre -->
+            <columnResizePolicy>
+                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+            </columnResizePolicy>
         </TableView>
     </center>
 
-    <!-- Bas : messages + petite barre d'emprunt -->
+    <!-- Bas : messages + zone d'emprunt -->
     <bottom>
-        <VBox prefHeight="120.0" prefWidth="835.0" spacing="8">
+        <VBox prefHeight="160.0" prefWidth="835.0" spacing="8">
             <padding>
                 <Insets bottom="10" left="10" right="10" top="10" />
             </padding>
 
-            <!-- Message d'erreur -->
-            <Label fx:id="errorLabel" styleClass="error-label" />
+            <!-- Message d'erreur (même classe que l'admin) -->
+            <Label fx:id="errorLabel"
+                   styleClass="error-message"
+                   wrapText="true"
+                   visible="false"
+                   managed="false" />
+
+            <!-- Message de succès (même classe que l'admin) -->
+            <Label fx:id="successLabel"
+                   styleClass="success-message"
+                   wrapText="true"
+                   visible="false"
+                   managed="false" />
 
             <!-- Zone d'emprunt pour l'adhérent -->
             <HBox spacing="8">
                 <children>
-                    <Label alignment="CENTER" contentDisplay="CENTER" prefHeight="50.0" prefWidth="159.0" style="-fx-font-weight: bold;" text="Emprunter un document :">
-                  <font>
-                     <Font size="14.0" />
-                  </font></Label>
-                    <ComboBox fx:id="cbDocumentDisponible" prefHeight="51.0" prefWidth="279.0" promptText="Choisir un document disponible" />
-                    <DatePicker fx:id="dpDateEmprunt" prefHeight="51.0" prefWidth="186.0" />
-                    <Button fx:id="btnBorrow" prefHeight="50.0" prefWidth="95.0" styleClass="btn-primary" text="Emprunter" />
+                    <Label alignment="CENTER"
+                           contentDisplay="CENTER"
+                           prefHeight="50.0" prefWidth="200.0"
+                           style="-fx-font-weight: bold;"
+                           text="Emprunter un document :">
+                        <font>
+                            <Font size="14.0" />
+                        </font>
+                    </Label>
+
+                    <ComboBox fx:id="cbDocumentDisponible"
+                              prefHeight="51.0" prefWidth="280.0"
+                              promptText="Choisir un document disponible" />
+
+                    <DatePicker fx:id="dpDateEmprunt"
+                                prefHeight="51.0" prefWidth="190.0" />
+
+                    <Button fx:id="btnBorrow"
+                            prefHeight="50.0" prefWidth="140.0"
+                            text="Emprunter">
+                        <styleClass>
+                            <String fx:value="btn" />
+                            <String fx:value="btn-primary" />
+                        </styleClass>
+                    </Button>
                 </children>
             </HBox>
         </VBox>

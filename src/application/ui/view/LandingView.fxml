@@ -3,6 +3,9 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
@@ -10,61 +13,92 @@
 <BorderPane fx:id="root" styleClass="dashboard-root" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.LandingController">
 
     <center>
-        <HBox alignment="CENTER" spacing="32" BorderPane.alignment="CENTER">
-            <padding>
-                <Insets bottom="40" left="48" right="48" top="40" />
-            </padding>
-            <children>
+        <ScrollPane fitToWidth="true" hbarPolicy="NEVER">
+            <content>
 
-                <!-- ========= BLOC GAUCHE : HERO ========= -->
-                <VBox alignment="CENTER_LEFT" spacing="18" HBox.hgrow="ALWAYS">
-                    <!-- Titre principal -->
-                    <Label styleClass="title" text="SGEB — Système de Gestion des Emprunts de Bibliothèque" />
+                <HBox alignment="CENTER" spacing="48">
+                    <padding>
+                        <Insets bottom="40" left="48" right="48" top="40" />
+                    </padding>
 
-                    <!-- Sous-titre / pitch -->
-                    <Label maxWidth="601.0" prefHeight="34.0" prefWidth="580.0" styleClass="subtitle" text="Une application JavaFX complète pour gérer documents, adhérents, emprunts et pénalités d’une bibliothèque universitaire." wrapText="true" />
+                    <children>
 
-                    <!-- Section : Pour qui ? -->
-                    <VBox spacing="8">
-                        <Label styleClass="section-title" text="Pour qui ?" />
+                        <!-- ========== COLONNE GAUCHE : HERO + TEXTE + CTA ========== -->
+                        <VBox alignment="TOP_LEFT" maxWidth="900" prefWidth="723.0" spacing="20" HBox.hgrow="ALWAYS">
 
-                        <Label maxWidth="595.0" prefHeight="34.0" prefWidth="595.0" styleClass="subtitle" text="• Administrateur : gère le catalogue, les adhérents, les emprunts, les retours, les retards et les pénalités, et suit l’activité via un tableau de bord riche en KPI." wrapText="true" />
+                            <!-- Titre principal -->
+                            <Label styleClass="title" text="SGEB — Système de Gestion des Emprunts de Bibliothèque" />
 
-                        <Label maxWidth="592.0" prefHeight="34.0" prefWidth="592.0" styleClass="subtitle" text="• Adhérent : consulte le catalogue, emprunte des documents, suit ses emprunts en cours et visualise ses pénalités." wrapText="true" />
-                    </VBox>
+                            <!-- Sous-titre / pitch -->
+                            <Label maxWidth="620" styleClass="subtitle" text="Une application JavaFX complète pour gérer documents, adhérents, emprunts et pénalités d’une bibliothèque universitaire." wrapText="true" />
 
-                    <!-- Section : Fonctionnalités clés -->
-                    <VBox spacing="8">
-                        <Label styleClass="section-title" text="Fonctionnalités principales" />
+                            <!-- Section : Pour qui ? -->
+                            <VBox spacing="8">
+                                <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Pour qui ?" />
 
-                        <Label maxWidth="589.0" prefHeight="34.0" prefWidth="589.0" styleClass="subtitle" text="• Tableau de bord : indicateurs sur les documents, emprunts, retards, pénalités et adhérents actifs." wrapText="true" />
+                                <Label maxWidth="620" styleClass="subtitle" text="• Administrateur : gère le catalogue, les adhérents, les emprunts, les retours, les retards et les pénalités, et suit l’activité via un tableau de bord riche en KPI." wrapText="true" />
+                                <Label maxWidth="620" styleClass="subtitle" text="• Adhérent : consulte le catalogue, emprunte des documents, suit ses emprunts en cours et visualise ses pénalités." wrapText="true" />
+                            </VBox>
 
-                        <Label maxWidth="565.0" prefHeight="17.0" prefWidth="565.0" styleClass="subtitle" text="• Catalogue : gestion des livres et supports, recherche par titre / auteur / genre, jaquettes locales." wrapText="true" />
+                            <!-- Section : Fonctionnalités principales -->
+                            <VBox spacing="8">
+                                <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Fonctionnalités principales" />
 
-                        <Label maxWidth="569.0" prefHeight="34.0" prefWidth="569.0" styleClass="subtitle" text="• Emprunts &amp; retards : suivi des emprunts en cours, détection des retards, génération des pénalités." wrapText="true" />
+                                <Label maxWidth="620" styleClass="subtitle" text="• Tableau de bord : indicateurs sur les documents, emprunts, retards, pénalités et adhérents actifs." wrapText="true" />
+                                <Label maxWidth="620" styleClass="subtitle" text="• Catalogue : gestion des livres et supports, recherche par titre / auteur / genre, jaquettes locales et import par ISBN." wrapText="true" />
+                                <Label maxWidth="620" styleClass="subtitle" text="• Emprunts &amp; retards : suivi des emprunts en cours, détection automatique des retards, génération des pénalités." wrapText="true" />
+                                <Label maxWidth="620" styleClass="subtitle" text="• Comptes &amp; rôles : séparation nette ADMIN / ADHERENT, statut du compte, mot de passe à changer à la première connexion." wrapText="true" />
+                            </VBox>
 
-                        <Label maxWidth="578.0" prefHeight="34.0" prefWidth="578.0" styleClass="subtitle" text="• Comptes &amp; rôles : séparation nette ADMIN / ADHERENT, statut du compte, mot de passe à changer." wrapText="true" />
-                    </VBox>
+                            <!-- Section : Architecture & technologies -->
+                            <VBox spacing="8">
+                                <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Architecture &amp; technologies" />
 
-                    <!-- Section projet -->
-                    <VBox spacing="6">
-                        <Label styleClass="section-title" text="Projet universitaire" />
+                                <Label maxWidth="620" styleClass="subtitle" text="• Architecture en couches : domaine métier, services applicatifs, ports/repositories, adaptateurs SQLite, UI JavaFX (FXML + ViewModel)." wrapText="true" />
+                                <Label maxWidth="620" styleClass="subtitle" text="• Persistance : base de données SQLite, gestion des clés étrangères, contraintes d’intégrité, requêtes typées par repository." wrapText="true" />
+                                <Label maxWidth="620" styleClass="subtitle" text="• UI : JavaFX moderne avec thèmes personnalisés, composants réutilisables, tableaux filtrables et graphiques pour le suivi d’activité." wrapText="true" />
+                            </VBox>
 
-                        <Label maxWidth="582.0" prefHeight="34.0" prefWidth="582.0" styleClass="muted" text="SGEB est structuré en couches (domaine, services, ports/repositories, adaptateurs SQLite, UI JavaFX) pour illustrer de bonnes pratiques d’architecture applicative." wrapText="true" />
-                    </VBox>
-                </VBox>
+                            <!-- Section : Exemple de parcours -->
+                            <VBox spacing="6">
+                                <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Exemple de parcours utilisateur" />
 
-                <!-- ========= BLOC DROIT : CTA / ACTIONS ========= -->
-                <VBox alignment="CENTER" prefWidth="260" spacing="12">
-                    <Label styleClass="section-title" text="Commencer" />
+                                <Label maxWidth="620" styleClass="subtitle" text="1. L’administrateur se connecte, consulte le tableau de bord, vérifie les retards et les pénalités, puis ajoute de nouveaux ouvrages au catalogue." wrapText="true" />
+                                <Label maxWidth="620" styleClass="subtitle" text="2. L’adhérent se connecte, explore le catalogue, emprunte un document, puis suit l’état de ses emprunts et ses éventuelles pénalités dans son espace dédié." wrapText="true" />
+                            </VBox>
 
-                    <Button fx:id="btnLogin" maxWidth="Infinity" onAction="#onLoginClicked" styleClass="btn-primary" text="Se connecter" />
+                            <!-- Boutons d’action -->
+                            <HBox prefHeight="59.0" prefWidth="723.0" spacing="12">
+                                <padding>
+                                    <Insets bottom="0" left="0" right="0" top="18" />
+                                </padding>
+                                <children>
+                                    <Button fx:id="btnLogin" onAction="#onLoginClicked" prefWidth="150" styleClass="btn-primary" text="Se connecter" />
 
-                    <Button fx:id="btnRegister" maxWidth="Infinity" onAction="#onRegisterClicked" styleClass="btn-secondary" text="Créer un compte adhérent" />
-                  
-                </VBox>
+                                    <Button fx:id="btnRegister" onAction="#onRegisterClicked" prefWidth="220" styleClass="btn-secondary" text="Créer un compte adhérent" />
+                                </children>
+                            </HBox>
+                        </VBox>
 
-            </children>
-        </HBox>
+                        <!-- ========== COLONNE DROITE : ILLUSTRATION ========== -->
+                        <VBox alignment="CENTER_RIGHT" maxWidth="300" prefWidth="300" HBox.hgrow="NEVER">
+                            <padding>
+                                <Insets bottom="20" left="0" right="0" top="20" />
+                            </padding>
+                            <children>
+                                <ImageView fitHeight="624.0" fitWidth="410.0" pickOnBounds="true" preserveRatio="true">
+                                    <image>
+                                        <Image url="@../css/6714.jpg" />
+                                    </image>
+                                </ImageView>
+                            </children>
+                        </VBox>
+
+                    </children>
+                </HBox>
+
+            </content>
+        </ScrollPane>
     </center>
+
 </BorderPane>

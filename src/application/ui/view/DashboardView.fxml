@@ -216,7 +216,9 @@
                             <HBox alignment="CENTER_LEFT" spacing="16">
                                 <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Récemment empruntés (Top 5)" />
                             </HBox>
-                            <FlowPane fx:id="recentStripContainer" />
+							<HBox fx:id="recentStripContainer"
+							      spacing="12"
+							      styleClass="recent-strip" />
                         </VBox>
 
                         <!-- ===================== GRAPHIQUES & TABLES ===================== -->
@@ -236,9 +238,17 @@
 
                         <!-- Répartition par genre -->
                         <VBox spacing="16" styleClass="card" VBox.vgrow="NEVER">
-                            <Label style="-fx-font-weight: bold;" styleClass="card-title" text="Répartition par genre" />
-                            <PieChart fx:id="chartGenres" animated="false" legendSide="BOTTOM" legendVisible="true" minHeight="240" prefHeight="300" />
+                            <Label style="-fx-font-weight: bold;" styleClass="card-title" text="Top 10 genres les plus présents" />
+                        	<BarChart fx:id="chartGenresBar" animated="false" legendVisible="false" minHeight="400" prefHeight="400" >
+							    <xAxis>
+							        <CategoryAxis label="Genre" side="BOTTOM" />
+							    </xAxis>
+							    <yAxis>
+							        <NumberAxis label="Nombre d'emprunts" side="LEFT" />
+							    </yAxis>
+							</BarChart>
                         </VBox>
+                     
 
                         <!-- Documents par Type -->
                         <VBox spacing="16" styleClass="card" VBox.vgrow="NEVER">

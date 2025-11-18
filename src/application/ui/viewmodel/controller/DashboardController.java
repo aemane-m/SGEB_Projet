@@ -13,16 +13,17 @@ import javafx.geometry.Pos;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.chart.AreaChart;
 import javafx.scene.chart.BarChart;
-import javafx.scene.chart.PieChart;
+import javafx.scene.chart.CategoryAxis;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
-import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
-
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -49,7 +50,9 @@ import java.util.List;
  */
 public class DashboardController {
 
-    // --- Champs FXML (KPI) ---
+    // ---------------------------------------------------------------------
+    // FXML : KPI & état global
+    // ---------------------------------------------------------------------
     @FXML private Label lblDocs;
     @FXML private Label lblAdherents;
     @FXML private Label lblEmprunts;
@@ -64,6 +67,7 @@ public class DashboardController {
     @FXML private Label lblTauxRetard;
     @FXML private Label lblTauxEngagementAdherents;
     @FXML private Label lblError;
+
     @FXML private ProgressIndicator progress;
 
     @FXML private Button btnRefresh;
@@ -74,10 +78,12 @@ public class DashboardController {
     @FXML private ToggleButton btn90Days;
     private ToggleGroup periodToggleGroup;
 
-    // --- Charts / Tables ---
-    @FXML private FlowPane recentStripContainer;
+    // ---------------------------------------------------------------------
+    // FXML : graphiques & tableaux
+    // ---------------------------------------------------------------------
+    @FXML private HBox recentStripContainer; // HBox dans le FXML
     @FXML private AreaChart<String, Number> chartLoans;
-    @FXML private PieChart chartGenres;
+    @FXML private BarChart<String, Number> chartGenresBar;
     @FXML private BarChart<String, Number> chartPeakHours;
 
     @FXML private TableView<DashboardViewModel.ActiveBorrower> tableAdherentsActifs;
@@ -90,33 +96,39 @@ public class DashboardController {
     @FXML private TableColumn<DashboardViewModel.OverdueItem, Number> colOverdueDays;
     @FXML private TableColumn<DashboardViewModel.OverdueItem, Number> colOverduePenalty;
 
-    // Conteneur principal pour la capture PDF
+    // Conteneur principal pour le snapshot PDF
     @FXML private VBox dashboardContent;
 
+    // ---------------------------------------------------------------------
+    // Modèle
+    // ---------------------------------------------------------------------
     private final DashboardViewModel viewModel;
 
-    // --- Constantes UI ---
-    private static final double CARD_WIDTH        = 175;
-    private static final double CARD_HEIGHT       = 240;
-    private static final double CARD_SPACING      = 12;
-    private static final double CARD_COVER_HEIGHT = 240;
+    // ---------------------------------------------------------------------
+    // Constantes UI
+    // ---------------------------------------------------------------------
+    private static final int MAX_RECENT            = 5;
+    private static final double CARD_WIDTH         = 175;
+    private static final double CARD_HEIGHT        = 240;
+    private static final double CARD_SPACING       = 12;
+    private static final double CARD_COVER_HEIGHT  = 240;
 
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yyyy 'à' HH:mm:ss");
     private static final DateTimeFormatter PDF_DATE_FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Constructeur
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     public DashboardController(DashboardViewModel viewModel) {
         this.viewModel = viewModel;
     }
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Initialisation
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     @FXML
     private void initialize() {
@@ -127,15 +139,15 @@ public class DashboardController {
         setupCarousel();
         setupExportPDF();
 
-        // Rebuild carrousel quand la liste d'emprunts récents change
-        viewModel.recentLoans().addListener((javafx.collections.ListChangeListener<DashboardViewModel.RecentLoan>) c -> {
-            rebuildCarousel();
-        });
+        // Reconstruire le carrousel quand les emprunts récents changent
+        viewModel.recentLoans().addListener(
+                (javafx.collections.ListChangeListener<DashboardViewModel.RecentLoan>) c -> rebuildCarousel()
+        );
     }
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Filtres de période
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     private void setupPeriodFilters() {
         periodToggleGroup = new ToggleGroup();
@@ -143,20 +155,19 @@ public class DashboardController {
         btn30Days.setToggleGroup(periodToggleGroup);
         btn90Days.setToggleGroup(periodToggleGroup);
 
-        // Période par défaut
-        btn7Days.setSelected(true);
+        btn7Days.setSelected(true); // période par défaut
 
         periodToggleGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
-                // Pour l'instant, on se contente de rafraîchir globalement
+                // Pour l’instant : rafraîchissement global
                 viewModel.refresh();
             }
         });
     }
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
     // KPI & état UI
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     private void setupKpiBindings() {
         lblDocs.textProperty().bind(viewModel.totalDocumentsProperty().asString());
@@ -167,10 +178,10 @@ public class DashboardController {
         lblTauxRotation.textProperty().bind(Bindings.format("%.1f", viewModel.tauxRotationProperty()));
         lblTauxOccupation.textProperty().bind(Bindings.format("%.1f%%", viewModel.tauxOccupationProperty()));
         lblTauxUtilisationFonds.textProperty().bind(Bindings.format("%.1f%%", viewModel.tauxUtilisationFondsProperty()));
-	    lblTauxReemprunt.textProperty().bind(Bindings.format("%.1f%%", viewModel.tauxReempruntProperty()));
-	    lblDureeMoyenneEmprunts.textProperty().bind(Bindings.format("%.1f j", viewModel.dureeMoyenneEmpruntsProperty()));
-	    lblTauxRetard.textProperty().bind(Bindings.format("%.1f%%", viewModel.tauxRetardProperty()));
-	    lblTauxEngagementAdherents.textProperty().bind(Bindings.format("%.1f%%", viewModel.tauxEngagementAdherentsProperty()));
+        lblTauxReemprunt.textProperty().bind(Bindings.format("%.1f%%", viewModel.tauxReempruntProperty()));
+        lblDureeMoyenneEmprunts.textProperty().bind(Bindings.format("%.1f j", viewModel.dureeMoyenneEmpruntsProperty()));
+        lblTauxRetard.textProperty().bind(Bindings.format("%.1f%%", viewModel.tauxRetardProperty()));
+        lblTauxEngagementAdherents.textProperty().bind(Bindings.format("%.1f%%", viewModel.tauxEngagementAdherentsProperty()));
 
         lblLastUpdated.textProperty().bind(
                 Bindings.createStringBinding(
@@ -181,10 +192,10 @@ public class DashboardController {
                 )
         );
 
+        // Erreur globale
         lblError.textProperty().bind(viewModel.errorProperty());
         lblError.visibleProperty().bind(viewModel.errorProperty().isNotEmpty());
         lblError.managedProperty().bind(lblError.visibleProperty());
-        
 
         // Spinner + boutons suivent l'état "loading" du ViewModel
         progress.visibleProperty().bind(viewModel.loadingProperty());
@@ -196,19 +207,45 @@ public class DashboardController {
         btnRefresh.setOnAction(e -> viewModel.refresh());
     }
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Graphiques
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     private void setupChartBindings() {
+        // Emprunts par mois
         if (chartLoans != null) {
             chartLoans.getData().setAll(List.of(viewModel.loansByMonthSeries()));
         }
 
-        if (chartGenres != null) {
-            chartGenres.setData(viewModel.docsByGenre());
+        // Répartition par genre → BarChart (Top 10)
+        if (chartGenresBar != null) {
+            chartGenresBar.getData().clear();
+            chartGenresBar.getXAxis().setLabel("Genre");
+            chartGenresBar.getYAxis().setLabel("Nombre de documents");
+
+            XYChart.Series<String, Number> series = viewModel.docsByGenreSeries();
+            chartGenresBar.getData().add(series);
+
+            CategoryAxis xAxis = (CategoryAxis) chartGenresBar.getXAxis();
+            xAxis.setTickLabelRotation(-45);
+            xAxis.setTickLabelGap(8);
+
+            chartGenresBar.setCategoryGap(15);
+            chartGenresBar.setBarGap(3);
+
+            NumberAxis yAxis = (NumberAxis) chartGenresBar.getYAxis();
+            double max = series.getData().stream()
+                    .mapToDouble(d -> d.getYValue().doubleValue())
+                    .max()
+                    .orElse(1d);
+
+            yAxis.setAutoRanging(false);
+            yAxis.setLowerBound(0);
+            yAxis.setUpperBound(Math.ceil(max * 1.2)); // +20% de marge haut
+            yAxis.setTickUnit(Math.max(1, Math.floor(yAxis.getUpperBound() / 5)));
         }
 
+        // Documents par type
         if (chartPeakHours != null) {
             chartPeakHours.getXAxis().setLabel("Type de document");
             chartPeakHours.getYAxis().setLabel("Quantité");
@@ -216,9 +253,9 @@ public class DashboardController {
         }
     }
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Tables
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     private void setupTableBindings() {
         // Top adhérents
@@ -274,14 +311,13 @@ public class DashboardController {
         tableOverdue.setItems(viewModel.getOverdueItems());
     }
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Carrousel des emprunts récents
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     private void setupCarousel() {
         if (recentStripContainer != null) {
-            recentStripContainer.setHgap(CARD_SPACING);
-            recentStripContainer.setVgap(CARD_SPACING);
+            recentStripContainer.setSpacing(CARD_SPACING);
         }
         rebuildCarousel();
     }
@@ -294,24 +330,69 @@ public class DashboardController {
             List<DashboardViewModel.RecentLoan> loans = viewModel.recentLoans();
 
             if (loans == null || loans.isEmpty()) {
-                recentStripContainer.getChildren().add(new Label("Aucun emprunt récent."));
+                // Quelques cartes “vides” pour garder la zone visuelle
+                for (int i = 0; i < 3; i++) {
+                    recentStripContainer.getChildren().add(createEmptyBookCard());
+                }
                 return;
             }
 
-            for (DashboardViewModel.RecentLoan item : loans) {
-                recentStripContainer.getChildren().add(createBookCard(item));
+            int count = Math.min(loans.size(), MAX_RECENT);
+            for (int i = 0; i < count; i++) {
+                recentStripContainer.getChildren().add(createBookCard(loans.get(i)));
             }
         });
     }
 
-    private VBox createBookCard(DashboardViewModel.RecentLoan item) {
+    /**
+     * Carte de placeholder quand il n'y a pas (ou pas assez) d'emprunts récents.
+     */
+    private VBox createEmptyBookCard() {
         VBox card = new VBox(6);
-        card.getStyleClass().add("product-card");
+        card.getStyleClass().addAll("product-card", "product-card-empty");
         card.setPrefWidth(CARD_WIDTH);
+        card.setMaxWidth(CARD_WIDTH);
         card.setPrefHeight(CARD_HEIGHT);
         card.setMaxHeight(CARD_HEIGHT);
         card.setAlignment(Pos.TOP_CENTER);
 
+        // Zone de couverture "vide"
+        StackPane coverPane = new StackPane();
+        coverPane.setPrefWidth(CARD_WIDTH);
+        coverPane.setMaxWidth(CARD_WIDTH);
+        coverPane.setPrefHeight(CARD_COVER_HEIGHT);
+        coverPane.setMinHeight(CARD_COVER_HEIGHT);
+        coverPane.setMaxHeight(CARD_COVER_HEIGHT);
+        coverPane.setAlignment(Pos.CENTER);
+        coverPane.getStyleClass().add("product-cover-placeholder");
+
+        VBox textContent = new VBox(4);
+        textContent.setPadding(new Insets(8));
+        textContent.setAlignment(Pos.CENTER_LEFT);
+
+        Label placeholder = new Label("Aucun emprunt récent");
+        placeholder.getStyleClass().add("product-placeholder-label");
+        placeholder.setWrapText(true);
+        placeholder.setMaxWidth(CARD_WIDTH - 16);
+
+        textContent.getChildren().add(placeholder);
+        card.getChildren().addAll(coverPane, textContent);
+
+        return card;
+    }
+
+    /**
+     * Carte d’un emprunt récent (avec couverture + titre + méta).
+     */
+    private VBox createBookCard(DashboardViewModel.RecentLoan item) {
+        VBox card = new VBox(6);
+        card.getStyleClass().addAll("product-card", "product-card--compact");
+        card.setPrefSize(CARD_WIDTH, CARD_HEIGHT);
+        card.setMaxSize(CARD_WIDTH, CARD_HEIGHT);
+        card.setPickOnBounds(true);
+        card.setAlignment(Pos.TOP_CENTER);
+
+        // Zone image : même logique que dans CatalogueController
         StackPane coverPane = new StackPane();
         coverPane.setPrefHeight(CARD_COVER_HEIGHT);
         coverPane.setMinHeight(CARD_COVER_HEIGHT);
@@ -326,18 +407,32 @@ public class DashboardController {
                 if (imageFile.exists() && imageFile.isFile()) {
                     String imageUrl = imageFile.toURI().toString();
                     Image img = new Image(imageUrl, true);
-                    ImageView imgView = new ImageView(img);
-                    imgView.setFitWidth(CARD_WIDTH);
-                    imgView.setFitHeight(CARD_COVER_HEIGHT);
-                    imgView.setPreserveRatio(false);
-                    imgView.setSmooth(true);
-                    coverPane.getChildren().add(imgView);
+
+                    img.errorProperty().addListener((obs, oldError, newError) -> {
+                        if (newError) {
+                            System.err.println("Erreur chargement image carte (dashboard) : " + imageUrl);
+                            if (img.getException() != null) {
+                                img.getException().printStackTrace();
+                            }
+                        }
+                    });
+
+                    if (!img.isError()) {
+                        ImageView imgView = new ImageView(img);
+                        imgView.setFitWidth(CARD_WIDTH);
+                        imgView.setFitHeight(CARD_COVER_HEIGHT);
+                        imgView.setPreserveRatio(false);
+                        imgView.setSmooth(true);
+                        coverPane.getChildren().add(imgView);
+                    }
                 }
             } catch (Exception e) {
-                System.err.println("Dashboard: erreur chargement image " + coverRef);
+                System.err.println("Erreur création URL/Image pour carte dashboard : "
+                        + coverRef + " - " + e.getMessage());
             }
         }
 
+        // Zone texte
         VBox textContent = new VBox(4);
         textContent.setPadding(new Insets(8));
         textContent.setAlignment(Pos.CENTER_LEFT);
@@ -356,9 +451,9 @@ public class DashboardController {
         return card;
     }
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Export PDF (snapshot du dashboard)
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     private void setupExportPDF() {
         btnExportPDF.setOnAction(e -> exportToPDF());
@@ -413,7 +508,9 @@ public class DashboardController {
             ImageIO.write(bufferedImage, "png", baos);
             byte[] imageBytes = baos.toByteArray();
 
-            PDImageXObject pdImage = PDImageXObject.createFromByteArray(document, imageBytes, "dashboard-snapshot");
+            PDImageXObject pdImage = PDImageXObject.createFromByteArray(
+                    document, imageBytes, "dashboard-snapshot"
+            );
 
             PDRectangle pageSize = PDRectangle.A4;
             PDPage page = new PDPage(pageSize);
@@ -424,7 +521,7 @@ public class DashboardController {
 
             try (PDPageContentStream content = new PDPageContentStream(document, page)) {
                 String title = "Rapport du tableau de bord";
-                String date = "Généré le : " + LocalDate.now().format(PDF_DATE_FORMATTER);
+                String date  = "Généré le : " + LocalDate.now().format(PDF_DATE_FORMATTER);
 
                 PDType1Font titleFont = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
                 PDType1Font dateFont  = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
@@ -469,9 +566,9 @@ public class DashboardController {
         }
     }
 
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
     // Alertes
-    // --------------------------------------------------------
+    // ---------------------------------------------------------------------
 
     private void showErrorAlert(String title, String header, String content) {
         Alert alert = new Alert(Alert.AlertType.ERROR);

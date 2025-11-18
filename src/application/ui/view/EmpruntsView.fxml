@@ -13,19 +13,14 @@
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TitledPane?>
 <?import javafx.scene.control.ToggleButton?>
-<?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.VBox?>
-<?import application.domain.core.personne.Adherent?>
-<?import application.domain.core.document.Document?>
-<?import application.domain.core.emprunt.Emprunt?>
 
-
-<VBox spacing="12" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.EmpruntsController">
+<VBox spacing="12" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.EmpruntsController">
 
   <padding>
     <Insets bottom="16" left="16" right="16" top="16" />
@@ -40,7 +35,7 @@
             <styleClass><String fx:value="btn" /><String fx:value="btn-primary" /><String fx:value="mode-toggle" /></styleClass>
       </ToggleButton>
 	  <ToggleButton fx:id="tgRetours" text="Retours">
-            <styleClass><String fx:value="btn" /><String fx:value="btn-secondary" /><String fx:value="mode-toggle" /></styleClass>
+            <styleClass><String fx:value="btn" /><String fx:value="btn-danger" /><String fx:value="mode-toggle" /></styleClass>
       </ToggleButton>
 	</HBox>
   </HBox>
