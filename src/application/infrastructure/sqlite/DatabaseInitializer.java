@@ -20,6 +20,7 @@ public final class DatabaseInitializer {
         // utilitaire
     }
 
+
     public static void initialize() {
         try (Connection c = SqliteDataSource.getConnection()) {
             c.setAutoCommit(false);
@@ -120,6 +121,10 @@ public final class DatabaseInitializer {
                 st.execute("CREATE INDEX IF NOT EXISTS idx_penalite_adherent ON PENALITE(adherent_id);");
                 st.execute("CREATE INDEX IF NOT EXISTS idx_penalite_status   ON PENALITE(status);");
 
+             
+
+                
+                
                 c.commit();
             } catch (SQLException ddlError) {
                 c.rollback();

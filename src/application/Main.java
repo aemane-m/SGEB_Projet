@@ -19,7 +19,7 @@ import application.domain.ports.storage.CoverStoragePort;
 import application.domain.service.*;
 import application.infrastructure.external.LocalCoverStorageAdapter;
 import application.infrastructure.external.OpenLibraryProvider;
-import application.infrastructure.sqlite.*;
+import application.infrastructure.sqlite.*; // inclut DemoDataSeeder, DatabaseInitializer, SqliteDataSource...
 import application.ui.navigation.Navigator;
 import application.ui.navigation.fx.FxNavigator;
 
@@ -36,6 +36,9 @@ public class Main extends Application {
 
     /** Référence à l'AccountService (auth, comptes) */
     private AccountService accountService;
+
+    /** Seeder pour les données de démonstration (optionnel) */
+    private DemoDataSeeder demoDataSeeder;
 
     @Override
     public void start(Stage primaryStage) {
@@ -93,8 +96,11 @@ public class Main extends Application {
             // ⚠️ On le crée AVANT le Navigator, car le Navigator en a besoin.
             this.accountService = new AccountServiceSqlite();
 
+            // 2ter) DemoDataSeeder (données de démonstration)
+            // ✅ C'est ici qu'on instancie vraiment le seeder :
+            this.demoDataSeeder = new DemoDataSeeder();
+
             // 3) Navigator (shell JavaFX) – on garde la référence dans le champ
-            // ⚠️ NOTE : le constructeur FxNavigator attend maintenant accountService en dernier paramètre.
             this.navigator = new FxNavigator(
                     primaryStage,
                     dashboardService,
@@ -106,7 +112,7 @@ public class Main extends Application {
                     empruntRepository,
                     penaliteRepository,
                     bookInfoProvider,
-                    this.accountService         // <--- ajouté
+                    this.accountService
             );
 
             // 4) Vérification du premier démarrage : y a-t-il au moins un compte ?
@@ -143,7 +149,7 @@ public class Main extends Application {
         FXMLLoader loader = new FXMLLoader(fxmlUrl);
         Parent root = loader.load();
 
-        // Injection AccountService + Navigator
+        // Injection AccountService + Navigator (+ DemoDataSeeder si besoin)
         injectDependencies(loader);
 
         Scene scene = new Scene(root, 900, 600);
@@ -163,6 +169,7 @@ public class Main extends Application {
         FXMLLoader loader = new FXMLLoader(fxmlUrl);
         Parent root = loader.load();
 
+        // Injection AccountService + Navigator + DemoDataSeeder
         injectDependencies(loader);
 
         Scene scene = new Scene(root, 600, 420);
@@ -199,6 +206,19 @@ public class Main extends Application {
                 // Le contrôleur ne gère pas le Navigator, ce n'est pas grave.
             } catch (Exception e) {
                 throw new RuntimeException("Injection Navigator impossible dans " +
+                        controller.getClass().getName() + " : " + e.getMessage(), e);
+            }
+        }
+
+        // Injection DemoDataSeeder (pour SetupWizardController)
+        if (this.demoDataSeeder != null) {
+            try {
+                Method m = controller.getClass().getMethod("setDemoDataSeeder", DemoDataSeeder.class);
+                m.invoke(controller, this.demoDataSeeder);
+            } catch (NoSuchMethodException e) {
+                // Le contrôleur ne gère pas DemoDataSeeder (normal pour la plupart)
+            } catch (Exception e) {
+                throw new RuntimeException("Injection DemoDataSeeder impossible dans " +
                         controller.getClass().getName() + " : " + e.getMessage(), e);
             }
         }

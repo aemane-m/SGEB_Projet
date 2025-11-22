@@ -331,7 +331,7 @@ public class DashboardController {
 
             if (loans == null || loans.isEmpty()) {
                 // Quelques cartes “vides” pour garder la zone visuelle
-                for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < 5; i++) {
                     recentStripContainer.getChildren().add(createEmptyBookCard());
                 }
                 return;

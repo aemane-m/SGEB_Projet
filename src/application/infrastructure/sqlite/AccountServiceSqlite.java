@@ -579,4 +579,10 @@ public final class AccountServiceSqlite implements AccountService {
         }
     }
 
+	@Override
+	public boolean hasAnyAdmin() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
 }

@@ -2,6 +2,7 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.PasswordField?>
 <?import javafx.scene.control.TextField?>
@@ -12,7 +13,10 @@
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.SetupWizardController">
+<BorderPane stylesheets="@../css/style.css"
+            xmlns="http://javafx.com/javafx/21.0.8"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="application.ui.viewmodel.controller.SetupWizardController">
 
     <center>
         <VBox alignment="CENTER" spacing="12" BorderPane.alignment="CENTER">
@@ -21,7 +25,8 @@
             </padding>
 
             <children>
-                <Label style="-fx-font-size: 18px; -fx-font-weight: bold;" text="Configuration initiale de SGEB" />
+                <Label style="-fx-font-size: 18px; -fx-font-weight: bold;"
+                       text="Configuration initiale de SGEB" />
 
                 <Label text="Créez le premier compte administrateur." />
 
@@ -35,36 +40,51 @@
                         <ColumnConstraints halignment="LEFT" hgrow="ALWAYS" />
                     </columnConstraints>
 
+                    <rowConstraints>
+                        <RowConstraints />
+                        <RowConstraints />
+                        <RowConstraints />
+                        <RowConstraints />
+                        <RowConstraints />
+                        <RowConstraints /> <!-- ligne pour la CheckBox -->
+                    </rowConstraints>
+
                     <children>
                         <Label text="Nom :" GridPane.columnIndex="0" GridPane.rowIndex="0" />
-                        <TextField fx:id="tfNom" promptText="Nom" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                        <TextField fx:id="tfNom" promptText="Nom"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="0" />
 
                         <Label text="Prénom :" GridPane.columnIndex="0" GridPane.rowIndex="1" />
-                        <TextField fx:id="tfPrenom" promptText="Prénom" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                        <TextField fx:id="tfPrenom" promptText="Prénom"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
                         <Label text="Email :" GridPane.columnIndex="0" GridPane.rowIndex="2" />
-                        <TextField fx:id="tfEmail" promptText="email@exemple.com" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                        <TextField fx:id="tfEmail" promptText="email@exemple.com"
+                                   GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
                         <Label text="Mot de passe :" GridPane.columnIndex="0" GridPane.rowIndex="3" />
-                        <PasswordField fx:id="pfPassword" promptText="Mot de passe" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                        <PasswordField fx:id="pfPassword" promptText="Mot de passe"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="3" />
 
                         <Label text="Confirmer :" GridPane.columnIndex="0" GridPane.rowIndex="4" />
-                        <PasswordField fx:id="pfConfirm" promptText="Confirmation" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                        <PasswordField fx:id="pfConfirm" promptText="Confirmation"
+                                       GridPane.columnIndex="1" GridPane.rowIndex="4" />
+
+                        <!-- CheckBox sur une nouvelle ligne dans la grille -->
+                        <CheckBox fx:id="cbInstallDemo"
+                                  text="Installer des données de démonstration (adhérents, livres, emprunts...)"
+                                  GridPane.columnIndex="1" GridPane.rowIndex="5" />
                     </children>
-               <rowConstraints>
-                  <RowConstraints />
-                  <RowConstraints />
-                  <RowConstraints />
-                  <RowConstraints />
-                  <RowConstraints />
-               </rowConstraints>
                 </GridPane>
 
                 <Label fx:id="lblError" textFill="red" wrapText="true" />
 
                 <HBox prefHeight="37.0" prefWidth="201.0" spacing="10">
                     <children>
-                        <Button defaultButton="true" onAction="#onCreateAdmin" styleClass="btn-primary" text="Créer le compte administrateur" />
+                        <Button defaultButton="true"
+                                onAction="#onCreateAdmin"
+                                styleClass="btn-primary"
+                                text="Créer le compte administrateur" />
                     </children>
                 </HBox>
             </children>

@@ -35,6 +35,9 @@ public interface AccountService {
 
     /** Retourne le nombre total de comptes en base. */
     long countUsers();
+    
+    boolean hasAnyAdmin();
+
 
     // =============================
     // ========== Login ============
@@ -202,4 +205,5 @@ public interface AccountService {
 
         createFirstAdmin(email, rawPassword, nom, prenom);
     }
+
 }

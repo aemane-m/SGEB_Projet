@@ -477,7 +477,7 @@ public class CatalogueController {
         addTheme(dlg.getDialogPane());
 
         GridPane grid = new GridPane();
-        grid.setHgap(10); grid.setVgap(10);
+        grid.setHgap(15); grid.setVgap(15);
         grid.setPadding(new Insets(20, 150, 10, 10));
 
         TextField tfIsbn = new TextField();
@@ -496,7 +496,7 @@ public class CatalogueController {
         dlg.getDialogPane().getButtonTypes().addAll(BTN_SEARCH, BTN_MANUAL, ButtonType.CANCEL);
 
         styleAsPrimary(dlg.getDialogPane(), BTN_SEARCH);
-        styleAsSecondary(dlg.getDialogPane(), BTN_MANUAL);
+        styleAsDanger(dlg.getDialogPane(), BTN_MANUAL);
 
         Node btnSearch = dlg.getDialogPane().lookupButton(BTN_SEARCH);
         btnSearch.setDisable(true);
