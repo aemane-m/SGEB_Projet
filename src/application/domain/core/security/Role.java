@@ -7,14 +7,20 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * <p><strong>Role</strong> représente un groupe de permissions ({@link Capability})
- * associées à un utilisateur.</p>
+ * <p>
+ * <strong>Role</strong> représente un groupe de permissions
+ * ({@link Capability}) associées à un utilisateur.
+ * </p>
  *
- * <p>Un rôle définit le périmètre d’action d’une personne
- * dans le système (ex. ADMIN, ADHERENT, BIBLIOTHECAIRE).</p>
+ * <p>
+ * Un rôle définit le <strong>périmètre d’action</strong> d’une personne
+ * dans le système (ex. {@code ADMIN}, {@code ADHERENT}, {@code BIBLIOTHECAIRE}).
+ * </p>
  *
- * <p>Cette classe est <strong>purement métier</strong> : elle ne dépend
- * d’aucune technologie de persistance ou d’authentification.</p>
+ * <p>
+ * Classe purement domaine : aucune dépendance à la persistance ou à un framework
+ * d’authentification.
+ * </p>
  *
  * @see Capability
  */
@@ -26,17 +32,21 @@ public final class Role {
     /** Nom symbolique standard du rôle Adhérent. */
     public static final String NAME_ADHERENT = "ADHERENT";
 
-    /** Nom symbolique du rôle (ex: "ADMIN", "ADHERENT") */
+    /** Nom symbolique du rôle (ex : "ADMIN", "ADHERENT"). */
     private final String nom;
 
-    /** Ensemble des capacités associées à ce rôle */
+    /** Ensemble des capacités associées à ce rôle. */
     private final Set<Capability> capabilities;
+
+    // ======================================================================
+    // ============================ CONSTRUCTEURS ===========================
+    // ======================================================================
 
     /**
      * Construit un rôle avec un nom et un ensemble de capacités initiales.
      *
-     * @param nom nom du rôle (non nul)
-     * @param capabilities ensemble des capacités (modifiable en interne)
+     * @param nom          nom du rôle (non null)
+     * @param capabilities ensemble initial de capacités (peut être null → vide)
      */
     public Role(String nom, Set<Capability> capabilities) {
         this.nom = Objects.requireNonNull(nom, "nom");
@@ -49,16 +59,20 @@ public final class Role {
      * Crée un rôle vide avec le nom spécifié.
      *
      * @param nom nom du rôle
-     * @return une nouvelle instance de {@code Role}
+     * @return nouvelle instance de {@code Role} sans capability
      */
     public static Role of(String nom) {
         return new Role(nom, new HashSet<>());
     }
 
     /**
-     * Factory rôle standard ADMIN :
-     * - accès au dashboard admin, catalogue, emprunts, pénalités,
-     *   adhérents, utilisateurs, stats, historique, etc.
+     * Factory pour le rôle standard ADMIN.
+     *
+     * <p>
+     * Contient les principales capabilities d’administration :
+     * dashboard, gestion des utilisateurs, catalogue, emprunts, pénalités,
+     * statistiques, historique, etc.
+     * </p>
      */
     public static Role adminRole() {
         Set<Capability> caps = EnumSet.of(
@@ -77,10 +91,16 @@ public final class Role {
     }
 
     /**
-     * Factory rôle standard ADHERENT :
-     * - consultation catalogue
-     * - emprunt / retour
-     * - consultation de ses emprunts / pénalités.
+     * Factory pour le rôle standard ADHERENT.
+     *
+     * <p>
+     * Capacités :
+     * </p>
+     * <ul>
+     *     <li>Consulter le catalogue</li>
+     *     <li>Emprunter / retourner des documents</li>
+     *     <li>Consulter ses emprunts et pénalités</li>
+     * </ul>
      */
     public static Role adherentRole() {
         Set<Capability> caps = EnumSet.of(
@@ -93,57 +113,74 @@ public final class Role {
         return new Role(NAME_ADHERENT, caps);
     }
 
-    /**
-     * Retourne le nom du rôle.
-     */
+    // ======================================================================
+    // ================================ ACCÈS ================================
+    // ======================================================================
+
+    /** @return nom du rôle (ex : "ADMIN"). */
     public String getNom() {
         return nom;
     }
 
-    /**
-     * Nom du rôle (alias anglophone).
-     */
+    /** Alias anglophone de {@link #getNom()}. */
     public String getName() {
         return nom;
     }
 
     /**
-     * Retourne les capacités associées à ce rôle (lecture seule).
+     * Retourne les capabilities associées à ce rôle.
+     *
+     * @return vue non modifiable de l’ensemble des capabilities
      */
     public Set<Capability> getCapabilities() {
         return Collections.unmodifiableSet(capabilities);
     }
 
+    // ======================================================================
+    // ============================= MÉTHODES MÉTIER ========================
+    // ======================================================================
+
     /**
-     * Vérifie si le rôle possède une capacité donnée.
+     * Vérifie si le rôle possède une capability donnée.
+     *
+     * @param capability capability à tester
+     * @return {@code true} si présente
      */
     public boolean hasCapability(Capability capability) {
         return capabilities.contains(capability);
     }
 
     /**
-     * Ajoute une capacité au rôle.
+     * Ajoute une capability au rôle.
+     *
+     * @param capability capability à ajouter (non null)
      */
     public void addCapability(Capability capability) {
         capabilities.add(Objects.requireNonNull(capability));
     }
 
     /**
-     * Supprime une capacité du rôle.
+     * Supprime une capability du rôle.
+     *
+     * @param capability capability à retirer
      */
     public void removeCapability(Capability capability) {
         capabilities.remove(capability);
     }
 
-    /** Rôle logique ADMIN ? */
+    /** @return {@code true} si le rôle est logiquement ADMIN. */
     public boolean isAdmin() {
         return NAME_ADMIN.equalsIgnoreCase(nom);
     }
 
-    /** Rôle logique ADHERENT ? */
+    /** @return {@code true} si le rôle est logiquement ADHERENT. */
     public boolean isAdherent() {
         return NAME_ADHERENT.equalsIgnoreCase(nom);
     }
+
+    // ======================================================================
+    // =========================== OBJECT METHODS ============================
+    // ======================================================================
 
     @Override
     public String toString() {
@@ -156,9 +193,9 @@ public final class Role {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof Role)) return false;
-        Role role = (Role) o;
-        return nom.equalsIgnoreCase(role.nom);
+        if (!(o instanceof Role other)) return false;
+        // Un rôle est identifié par son nom (insensible à la casse)
+        return nom.equalsIgnoreCase(other.nom);
     }
 
     @Override

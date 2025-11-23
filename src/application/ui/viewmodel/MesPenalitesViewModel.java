@@ -3,7 +3,6 @@ package application.ui.viewmodel;
 import application.domain.core.emprunt.Emprunt;
 import application.domain.core.emprunt.Penalite;
 import application.domain.ports.repository.EmpruntRepository;
-import application.domain.ports.repository.PenaliteRepository;
 import application.domain.service.PenaliteService;
 import javafx.application.Platform;
 import javafx.beans.property.*;
@@ -26,9 +25,8 @@ import java.util.stream.Collectors;
 public final class MesPenalitesViewModel {
 
     private final PenaliteService penaliteService;
-    private final EmpruntRepository empruntRepository;      // utilisé pour retrouver les documents
-    @SuppressWarnings("unused")
-    private final PenaliteRepository penaliteRepository;    // gardé pour évolutions
+    /** Utilisé pour retrouver les emprunts (et donc les documents) associés aux pénalités. */
+    private final EmpruntRepository empruntRepository;
 
     /** Id de l'adhérent courant. */
     private long adherentId;
@@ -43,26 +41,24 @@ public final class MesPenalitesViewModel {
     // Constructeurs
     // ------------------------------------------------------------------------
 
+    /** Constructeur fallback (tests / Scene Builder). */
     public MesPenalitesViewModel(PenaliteService penaliteService) {
-        this(penaliteService, null, null, null);
+        this(penaliteService, null, null);
     }
 
     /**
      * Constructeur complet utilisé par FxNavigator.
      *
-     * @param penaliteService    service domaine des pénalités
-     * @param empruntRepository  repository des emprunts (peut être null mais recommandé)
-     * @param penaliteRepository repository des pénalités (optionnel)
-     * @param adherentId         id de l'adhérent (peut être null)
+     * @param penaliteService   service domaine des pénalités (obligatoire)
+     * @param empruntRepository repository des emprunts (peut être null, mais recommandé pour afficher les documents)
+     * @param adherentId        id de l'adhérent (peut être null si non encore connu)
      */
     public MesPenalitesViewModel(PenaliteService penaliteService,
                                  EmpruntRepository empruntRepository,
-                                 PenaliteRepository penaliteRepository,
                                  Long adherentId) {
 
         this.penaliteService = Objects.requireNonNull(penaliteService, "penaliteService");
         this.empruntRepository = empruntRepository;
-        this.penaliteRepository = penaliteRepository;
 
         if (adherentId != null && adherentId > 0) {
             this.adherentId = adherentId;

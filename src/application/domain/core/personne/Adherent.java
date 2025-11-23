@@ -15,52 +15,101 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * <p><strong>Adherent</strong> est une entité du domaine représentant un membre de la bibliothèque.</p>
+ * Représente un <strong>adhérent</strong> (membre de la bibliothèque) dans le domaine SGEB.
  *
- * <p>Responsabilités principales :</p>
+ * <p>L’adhérent :</p>
  * <ul>
- *   <li>Hérite de {@link Personne} (identité : id, nom, prenom, email, téléphone)</li>
- *   <li>Gère ses emprunts actifs (liste en mémoire côté domaine)</li>
- *   <li>Ne stocke pas de total de pénalités : calcul à la demande via {@link Emprunt}</li>
- *   <li>Porte un {@link Role} fonctionnel (autorisation) distinct des règles métier</li>
+ *     <li>Hérite de {@link Personne} (id, nom, prénom, email, téléphone).</li>
+ *     <li>Possède une date d’inscription à la bibliothèque.</li>
+ *     <li>Maintient en mémoire ses emprunts actifs ({@link Emprunt}).</li>
+ *     <li>Ne stocke pas de total de pénalités : ce total est calculé à la demande.</li>
+ *     <li>Dispose d’un rôle fonctionnel {@link Role} de type {@code ADHERENT}
+ *         (autorisation / sécurité via {@link Capability}).</li>
  * </ul>
  *
- * <p>Invariants métier :</p>
+ * <h3>Règles métier (invariants) principales</h3>
  * <ul>
- *   <li>Au plus {@link #MAX_EMPRUNTS} emprunts EN COURS</li>
- *   <li>Un adhérent avec retard/pénalités en cours ne peut pas emprunter</li>
+ *     <li>Un adhérent ne peut pas avoir plus de {@link #MAX_EMPRUNTS} emprunts en cours.</li>
+ *     <li>Un adhérent avec des retards ou des pénalités en cours ne peut pas emprunter.</li>
  * </ul>
  *
- * <p>Remarque : l'autorisation (peut-il faire l'action ?) est distincte des règles métier
- * (a-t-il le droit fonctionnellement vs a-t-il le droit au regard des contraintes de gestion).
- * L'autorisation s'appuie sur {@link Role}/{@link Capability}, les règles métier sur l'état des {@link Emprunt}.</p>
+ * <p>
+ * Attention : les <strong>autorisations</strong> (peut-il techniquement faire l’action,
+ * via {@link Role}/{@link Capability}) sont distinctes des <strong>règles métier</strong>
+ * (a-t-il le droit au regard de son état : retards, pénalités, plafond atteint…).
+ * Ici, on gère les règles métier ; l’autorisation est une vérification complémentaire.
+ * </p>
  */
 public class Adherent extends Personne {
 
     /** Nombre maximal d'emprunts simultanés autorisés côté métier. */
     public static final int MAX_EMPRUNTS = 5;
 
-    // --- État propre à l'adhérent ---
+    // ======================================================================
+    // ================================ CHAMPS ===============================
+    // ======================================================================
+
+    /** Date d'inscription de l'adhérent à la bibliothèque. */
     private LocalDate dateInscription;
-    /** Collection des emprunts (seuls les "en cours" devraient être ici si on sépare l'historique). */
+
+    /**
+     * Collection des emprunts actifs de l’adhérent.
+     * <p>
+     * Par convention, on ne garde dans cette liste que les emprunts
+     * considérés comme "actifs" (en cours de suivi).  
+     * La séparation actif / historique est gérée côté service si besoin.
+     * </p>
+     */
     private final List<Emprunt> empruntsActifs = new ArrayList<>();
 
-    // --- Autorisation (sécurité) ---
-    /** Rôle fonctionnel de l'adhérent (autorisation). */
+    /** Rôle fonctionnel de l'adhérent (modèle RBAC). */
     private final Role role = initialiserRoleAdherent();
 
-    // --- Ctors ---
+    // ======================================================================
+    // ============================= CONSTRUCTEURS ===========================
+    // ======================================================================
+
+    /**
+     * Constructeur vide requis pour certains frameworks (ORM, désérialisation).
+     * <p>
+     * La date d’inscription est initialisée à la date du jour.
+     * </p>
+     */
     public Adherent() {
         super();
         this.dateInscription = LocalDate.now();
     }
 
-    public Adherent(Long id, String nom, String prenom, String email, String telephone, LocalDate dateInscription) {
+    /**
+     * Constructeur complet.
+     *
+     * @param id identifiant technique (peut être null avant persistance)
+     * @param nom nom de l’adhérent
+     * @param prenom prénom de l’adhérent
+     * @param email adresse email
+     * @param telephone téléphone
+     * @param dateInscription date d’inscription (si null → aujourd’hui)
+     */
+    public Adherent(Long id,
+                    String nom,
+                    String prenom,
+                    String email,
+                    String telephone,
+                    LocalDate dateInscription) {
         super(id, nom, prenom, email, telephone);
         this.dateInscription = (dateInscription != null) ? dateInscription : LocalDate.now();
     }
 
-    // --- Initialisation du rôle ADHERENT ---
+    // ======================================================================
+    // ============================== RÔLE / RBAC ============================
+    // ======================================================================
+
+    /**
+     * Initialise le rôle fonctionnel {@code ADHERENT} avec les capacités
+     * standard d’un membre de bibliothèque.
+     *
+     * @return rôle configuré
+     */
     private Role initialiserRoleAdherent() {
         Role r = Role.of("ADHERENT");
         r.addCapability(Capability.CONSULT_CATALOG);
@@ -69,90 +118,129 @@ public class Adherent extends Personne {
         return r;
     }
 
-    // --- Getters basiques ---
-    /** Date d'inscription de l'adhérent. */
-    public LocalDate getDateInscription() { return dateInscription; }
+    // ======================================================================
+    // ================================ GETTERS ==============================
+    // ======================================================================
 
-    public void setDateInscription(LocalDate dateInscription) { this.dateInscription = dateInscription; }
+    /** @return date d’inscription de l’adhérent. */
+    public LocalDate getDateInscription() {
+        return dateInscription;
+    }
 
-    /** Vue immuable pour éviter les modifications hors invariants. */
+    public void setDateInscription(LocalDate dateInscription) {
+        this.dateInscription = dateInscription;
+    }
+
+    /**
+     * Retourne une vue <strong>immuable</strong> des emprunts actifs.
+     * <p>Cela évite les modifications directes en dehors des méthodes métier.</p>
+     */
     public List<Emprunt> getEmpruntsActifs() {
         return Collections.unmodifiableList(empruntsActifs);
     }
 
-    /** Rôle fonctionnel (autorisation) de l'adhérent. */
-    public Role getRole() { return role; }
+    /** @return rôle fonctionnel (sécurité) de l’adhérent. */
+    public Role getRole() {
+        return role;
+    }
 
-    // =========================
-    // ===== Métier Adhérent ===
-    // =========================
+    // ======================================================================
+    // =============================== MÉTIER ================================
+    // ======================================================================
 
     /**
-     * L'adhérent peut-il emprunter "à la date asOf" ?
-     * <p>Conditions métier :</p>
+     * Vérifie si l'adhérent peut emprunter à la date {@code asOf}, du point de vue
+     * des <strong>règles métier</strong> (sans tenir compte du RBAC).
+     *
+     * <p>Conditions :</p>
      * <ul>
-     *   <li>Nombre d'emprunts en cours &lt; {@link #MAX_EMPRUNTS}</li>
-     *   <li>Aucun emprunt en retard à {@code asOf}</li>
-     *   <li>Aucune pénalité déjà générée (si {@link Penalite} porte un statut, affiner ici)</li>
+     *     <li>Nombre d'emprunts en cours &lt; {@link #MAX_EMPRUNTS}</li>
+     *     <li>Aucun emprunt en retard à la date {@code asOf}</li>
+     *     <li>Aucune pénalité déjà générée (via {@link Emprunt#getPenalite()})</li>
      * </ul>
-     * <p>Note : l'autorisation fonctionnelle (capability {@link Capability#BORROW_DOCUMENT})
-     * est une vérification distincte (côté service via AccessPolicy ou via {@link #peutEmprunterCoteAutorisation()}).</p>
      *
      * @param asOf date de référence
-     * @return {@code true} si l'adhérent satisfait les contraintes métier d'emprunt
+     * @return {@code true} si l’adhérent satisfait les contraintes métier pour emprunter
      */
     public boolean peutEmprunter(LocalDate asOf) {
         Objects.requireNonNull(asOf, "asOf");
-        if (empruntsActifs.size() >= MAX_EMPRUNTS) return false;
 
+        // Plafond d’emprunts en cours
+        if (empruntsActifs.size() >= MAX_EMPRUNTS) {
+            return false;
+        }
+
+        // Retard ?
         boolean aUnRetard = empruntsActifs.stream().anyMatch(e -> e.estEnRetard(asOf));
-        if (aUnRetard) return false;
+        if (aUnRetard) {
+            return false;
+        }
 
+        // Pénalité déjà générée ?
         boolean aPenalites = empruntsActifs.stream().anyMatch(e -> e.getPenalite().isPresent());
         return !aPenalites;
     }
 
     /**
-     * Ajoute un emprunt (créé via {@link Emprunt#creer}) si l'invariant permet d'emprunter.
-     * Vérifie aussi que l'emprunt est bien au nom de cet adhérent et que l'emprunt est en cours.
+     * Ajoute un emprunt à la liste des emprunts actifs si les conditions métier le permettent.
      *
-     * @param emprunt emprunt à ajouter
-     * @param asOf    date de référence pour la vérification métier
-     * @return {@code true} si ajouté, {@code false} sinon (ex. plafond atteint)
+     * <p>Vérifications :</p>
+     * <ul>
+     *     <li>L’emprunt ne doit pas être null.</li>
+     *     <li>L’emprunt doit appartenir à cet adhérent.</li>
+     *     <li>L’emprunt doit être en cours ({@link Emprunt#estEnCours()}).</li>
+     *     <li>{@link #peutEmprunter(LocalDate)} doit être vrai à la date {@code asOf}.</li>
+     * </ul>
+     *
+     * @param emprunt emprunt à ajouter (créé via {@link Emprunt#creer} par exemple)
+     * @param asOf date de référence pour la vérification des règles métier
+     * @return {@code true} si l’emprunt a été ajouté, {@code false} si refus métier (plafond, retard, pénalités)
+     * @throws IllegalArgumentException si l’emprunt ne correspond pas à cet adhérent ou n’est pas en cours
      */
     public boolean ajouterEmprunt(Emprunt emprunt, LocalDate asOf) {
         Objects.requireNonNull(emprunt, "emprunt");
         Objects.requireNonNull(asOf, "asOf");
+
         if (emprunt.getEmprunteur() != this) {
             throw new IllegalArgumentException("L'emprunt n'appartient pas à cet adhérent.");
         }
-        if (!peutEmprunter(asOf)) return false;
+        if (!peutEmprunter(asOf)) {
+            return false;
+        }
         if (!emprunt.estEnCours()) {
             throw new IllegalArgumentException("On ne peut ajouter qu'un emprunt en cours.");
         }
+
         return empruntsActifs.add(emprunt);
     }
 
     /**
-     * Clôture un emprunt actif (retour) et, si nécessaire, génère une pénalité.
-     * L'objet peut rester dans la liste (purge/archivage à faire côté service si besoin).
+     * Clôture un emprunt actif (retour du document) et génère une pénalité si nécessaire.
+     * <p>
+     * L’emprunt reste dans la liste des actifs : la séparation actif / historique
+     * peut être gérée par un service qui appelle ensuite {@link #retirerEmprunt(Emprunt)}.
+     * </p>
      *
-     * @param emprunt    emprunt actif à clôturer
+     * @param emprunt emprunt actif à clôturer
      * @param dateRetour date effective de retour
+     * @throws IllegalArgumentException si l’emprunt n’est pas connu comme actif pour cet adhérent
      */
     public void cloturerEmprunt(Emprunt emprunt, LocalDate dateRetour) {
         Objects.requireNonNull(emprunt, "emprunt");
         Objects.requireNonNull(dateRetour, "dateRetour");
+
         if (!empruntsActifs.contains(emprunt)) {
             throw new IllegalArgumentException("Emprunt non trouvé parmi les emprunts actifs de l'adhérent.");
         }
+
         emprunt.cloturerRetour(dateRetour);
         emprunt.genererPenaliteSiNecessaire(dateRetour, Emprunt.PENALITE_PAR_JOUR_DEFAUT);
     }
 
     /**
-     * Liste des pénalités attachées aux emprunts actifs.
-     * @return liste (copie) des pénalités présentes
+     * Liste les pénalités (déjà générées) attachées aux emprunts actifs de l’adhérent.
+     *
+     * @return liste (copie) des pénalités existantes
      */
     public List<Penalite> listerPenalites() {
         return empruntsActifs.stream()
@@ -161,27 +249,30 @@ public class Adherent extends Personne {
     }
 
     /**
-     * Somme des pénalités courantes (non "générées") au sens calcul instantané,
-     * uniquement sur les retards des emprunts EN COURS à la date {@code asOf}.
-     * Utilise la politique par défaut d'Emprunt (0,50 €/jour).
+     * Calcule le montant total des pénalités <strong>courantes</strong>
+     * (non encore générées en entité {@link Penalite}) pour les emprunts
+     * en cours et en retard à la date {@code asOf}.
+     *
+     * <p>Utilise la politique par défaut de {@link Emprunt} (0,50 €/jour).</p>
      *
      * @param asOf date de référence
-     * @return montant total calculé à la volée
+     * @return montant total calculé à la volée en {@link Money}
      */
     public Money penalitesCourantes(LocalDate asOf) {
         Objects.requireNonNull(asOf, "asOf");
         Money total = Money.euros(0.0);
+
         for (Emprunt e : empruntsActifs) {
             if (e.estEnCours() && e.estEnRetard(asOf)) {
-                total = total.add(e.penaliteCourante(asOf)); // par défaut 0.50€/j
+                total = total.add(e.penaliteCourante(asOf)); // 0,50 €/jour par défaut
             }
         }
         return total;
     }
 
     /**
-     * Génère et attache des pénalités pour tous les emprunts en retard à {@code asOf}
-     * (si pas déjà générées). Retourne la liste des pénalités nouvellement créées.
+     * Génère des {@link Penalite} pour tous les emprunts en retard à la date
+     * {@code asOf}, si ce n’est pas déjà fait.
      *
      * @param asOf date de référence
      * @return liste des nouvelles pénalités créées
@@ -189,34 +280,49 @@ public class Adherent extends Personne {
     public List<Penalite> genererPenalitesSiNecessaire(LocalDate asOf) {
         Objects.requireNonNull(asOf, "asOf");
         List<Penalite> nouvelles = new ArrayList<>();
+
         for (Emprunt e : empruntsActifs) {
             e.genererPenaliteSiNecessaire(asOf, Emprunt.PENALITE_PAR_JOUR_DEFAUT)
              .ifPresent(nouvelles::add);
         }
+
         return nouvelles;
     }
 
     /**
-     * Retire l'emprunt de la liste des "actifs".
-     * À appeler côté service si tu sépares actif / historique après retour.
+     * Retire un emprunt de la liste des "emprunts actifs".
+     * <p>
+     * Généralement appelé par un service lorsque l’emprunt est archivé
+     * dans un historique.
+     * </p>
      *
      * @param emprunt emprunt à retirer
-     * @return {@code true} si retiré
+     * @return {@code true} si l’emprunt était présent et a été retiré
      */
     public boolean retirerEmprunt(Emprunt emprunt) {
         Objects.requireNonNull(emprunt, "emprunt");
         return empruntsActifs.remove(emprunt);
     }
 
-    // --- Aides de lecture ---
-    /** @return vue immuable des emprunts en cours. */
+    // ======================================================================
+    // ===================== AIDES DE LECTURE / VUES FILTRÉES ===============
+    // ======================================================================
+
+    /**
+     * @return liste immuable des emprunts en cours.
+     */
     public List<Emprunt> empruntsEnCours() {
         return empruntsActifs.stream()
                 .filter(Emprunt::estEnCours)
                 .collect(Collectors.toUnmodifiableList());
     }
 
-    /** @return vue immuable des emprunts en retard à {@code asOf}. */
+    /**
+     * Retourne la liste des emprunts en retard à {@code asOf}.
+     *
+     * @param asOf date de référence
+     * @return liste immuable des emprunts en retard
+     */
     public List<Emprunt> empruntsEnRetard(LocalDate asOf) {
         Objects.requireNonNull(asOf, "asOf");
         return empruntsActifs.stream()
@@ -224,39 +330,61 @@ public class Adherent extends Personne {
                 .collect(Collectors.toUnmodifiableList());
     }
 
-    // ===== Helpers autorisation (optionnels) =====
+    // ======================================================================
+    // =========================== AUTORISATION HELPER =======================
+    // ======================================================================
 
-    /** Autorisation : l'adhérent possède-t-il la capability de consulter le catalogue ? */
+    /** @return true si l'adhérent possède la capacité de consulter le catalogue. */
     public boolean peutConsulterCatalogue() {
         return role.hasCapability(Capability.CONSULT_CATALOG);
     }
 
-    /** Autorisation : l'adhérent possède-t-il la capability d'emprunter (côté sécurité) ? */
+    /** @return true si l'adhérent possède la capacité d’emprunter (côté sécurité). */
     public boolean peutEmprunterCoteAutorisation() {
         return role.hasCapability(Capability.BORROW_DOCUMENT);
     }
 
-    /** Autorisation : l'adhérent possède-t-il la capability de retourner (côté sécurité) ? */
+    /** @return true si l'adhérent possède la capacité de retourner un document (côté sécurité). */
     public boolean peutRetournerCoteAutorisation() {
         return role.hasCapability(Capability.RETURN_DOCUMENT);
     }
-    
-    /** L’adhérent a-t-il des pénalités (déjà générées OU courantes à la date asOf) ? */
+
+    /**
+     * Indique si l’adhérent a des pénalités :
+     * <ul>
+     *     <li>soit déjà générées ({@link #listerPenalites()})</li>
+     *     <li>soit courantes (calcul à la date {@code asOf})</li>
+     * </ul>
+     *
+     * @param asOf date de référence
+     * @return true si au moins une pénalité existe ou est due
+     */
     public boolean hasPenalite(LocalDate asOf) {
         Objects.requireNonNull(asOf, "asOf");
         return !listerPenalites().isEmpty()
-            || penalitesCourantes(asOf).isPositive(); // Money.isPositive()
+                || penalitesCourantes(asOf).isPositive();
     }
 
-    /** Variante utilitaire pilotée par horloge (utile en tests). */
+    /**
+     * Variante de {@link #hasPenalite(LocalDate)} pilotée par une {@link Clock},
+     * pratique pour les tests unitaires.
+     */
     public boolean hasPenalite(Clock clock) {
+        Objects.requireNonNull(clock, "clock");
         return hasPenalite(LocalDate.now(clock));
     }
 
-    /** Variante “now” (à éviter en tests unitaires). */
+    /**
+     * Variante utilisant la date système actuelle.
+     * <p>A éviter dans les tests unitaires, préférer {@link #hasPenalite(Clock)}.</p>
+     */
     public boolean hasPenaliteNow() {
         return hasPenalite(LocalDate.now());
-        }
+    }
+
+    // ======================================================================
+    // =============================== UTILITAIRE ============================
+    // ======================================================================
 
     @Override
     public String toString() {
@@ -266,27 +394,22 @@ public class Adherent extends Personne {
     }
 
     /**
-     * Renvoie le nom complet de l'adhérent (Prénom Nom).
-     * Gère les cas où le prénom ou le nom pourraient être null ou vides.
-     * @return Le nom complet formaté.
+     * Renvoie le nom complet de l'adhérent (Prénom Nom), en gérant
+     * les cas où le prénom ou le nom seraient null ou vides.
+     *
+     * @return nom complet formaté, ou chaîne vide si aucune info
      */
     public String getNomComplet() {
-        // Utilise les getters hérités de Personne
         String prenom = getPrenom();
         String nom = getNom();
 
-        // Utilisation d'une méthode helper pour simplifier la gestion des null/blancs
         String prenomPart = (prenom == null || prenom.isBlank()) ? "" : prenom.trim();
         String nomPart = (nom == null || nom.isBlank()) ? "" : nom.trim();
 
-        // Combine les deux parties, en ajoutant un espace seulement si les deux existent
         if (!prenomPart.isEmpty() && !nomPart.isEmpty()) {
             return prenomPart + " " + nomPart;
-        } else {
-            // Si l'un ou l'autre est vide, retourne juste la partie non vide (ou une chaîne vide si les deux le sont)
-            return prenomPart + nomPart;
         }
+        // Si un seul est non vide, on le retourne ; sinon, chaîne vide
+        return prenomPart + nomPart;
     }
-    
-    
 }

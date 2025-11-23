@@ -2,11 +2,8 @@ package application.ui.viewmodel;
 
 import application.domain.core.document.Document;
 import application.domain.core.emprunt.Emprunt;
-import application.domain.core.personne.Adherent;
-import application.domain.ports.repository.AdherentRepository;
 import application.domain.ports.repository.DocumentRepository;
 import application.domain.ports.repository.EmpruntRepository;
-import application.domain.ports.repository.PenaliteRepository;
 import application.domain.service.DashboardService;
 import javafx.application.Platform;
 import javafx.beans.property.*;
@@ -25,43 +22,32 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * ViewModel du Dashboard.
- *
- * Rôle :
- * - centraliser le calcul des KPI et données de graphiques,
- * - exposer des propriétés JavaFX pour la vue,
- * - exécuter les chargements en asynchrone (runSafely + CompletableFuture).
+ * Version Corrigée : Prend en compte le filtre de période pour les graphiques.
  */
-public class DashboardViewModel {
+public final class DashboardViewModel {
 
     // =========================================================
     // Dépendances
     // =========================================================
-
     private final DashboardService dashboardService;
     private final DocumentRepository documentRepository;
-    private final AdherentRepository adherentRepository;  // potentiellement utile plus tard
     private final EmpruntRepository empruntRepository;
-    private final PenaliteRepository penaliteRepository;   // potentiellement utile plus tard
 
     private final String username;
     private final String role;
 
     // =========================================================
-    // KPIs simples
+    // KPIs (Propriétés pour la vue)
     // =========================================================
-
     private final IntegerProperty totalDocuments  = new SimpleIntegerProperty(0);
     private final IntegerProperty totalAdherents  = new SimpleIntegerProperty(0);
-    private final IntegerProperty totalEmprunts   = new SimpleIntegerProperty(0);
+    private final IntegerProperty totalEmprunts   = new SimpleIntegerProperty(0); // Emprunts sur la période
     private final DoubleProperty penalitesEnCours = new SimpleDoubleProperty(0.0);
     private final IntegerProperty totalRetards    = new SimpleIntegerProperty(0);
     private final DoubleProperty tauxRotation     = new SimpleDoubleProperty(0.0);
     private final DoubleProperty tauxOccupation   = new SimpleDoubleProperty(0.0);
 
-    // =========================================================
     // KPIs avancés
-    // =========================================================
-
     private final DoubleProperty tauxUtilisationFonds    = new SimpleDoubleProperty(0.0);
     private final DoubleProperty tauxReemprunt           = new SimpleDoubleProperty(0.0);
     private final DoubleProperty dureeMoyenneEmprunts    = new SimpleDoubleProperty(0.0);
@@ -71,391 +57,368 @@ public class DashboardViewModel {
     // =========================================================
     // État UI
     // =========================================================
-
     private final BooleanProperty loading       = new SimpleBooleanProperty(false);
     private final StringProperty  error         = new SimpleStringProperty("");
-    private final ObjectProperty<LocalDateTime> lastUpdated =
-            new SimpleObjectProperty<>(null);
+    private final ObjectProperty<LocalDateTime> lastUpdated = new SimpleObjectProperty<>(null);
 
     // =========================================================
-    // Graphiques
+    // Données Graphiques
     // =========================================================
-
-    // Évolution des emprunts par mois
+    // Évolution des emprunts (Filtré)
     private final XYChart.Series<String, Number> loansByMonth = new XYChart.Series<>();
 
-    // Répartition par genre (support PieChart, même si tu n’affiches plus de camembert,
-    // ça reste utile pour la logique de regroupement)
-    private final ObservableList<PieChart.Data> docsByGenre =
-            FXCollections.observableArrayList();
+    // Répartition du STOCK par genre (Global)
+    private final ObservableList<PieChart.Data> docsByGenre = FXCollections.observableArrayList();
 
-    // Documents par type (BarChart)
+    // Documents par type (Global)
     private final XYChart.Series<String, Number> docsByType = new XYChart.Series<>();
 
-    // Top 10 genres les plus empruntés (BarChart)
+    // Top 10 genres les plus EMPRUNTÉS (Filtré sur la période)
     private final XYChart.Series<String, Number> docsByGenreBar = new XYChart.Series<>();
 
     // =========================================================
-    // Listes dynamiques affichées dans la vue
+    // Listes
     // =========================================================
-
     public record RecentLoan(String title, String borrower, String when, String coverRef) {}
-    private final ObservableList<RecentLoan> recentLoans =
-            FXCollections.observableArrayList();
+    private final ObservableList<RecentLoan> recentLoans = FXCollections.observableArrayList();
 
     public record ActiveBorrower(String name, int loanCount) {}
-    private final ObservableList<ActiveBorrower> activeBorrowers =
-            FXCollections.observableArrayList();
+    private final ObservableList<ActiveBorrower> activeBorrowers = FXCollections.observableArrayList();
 
     public record OverdueItem(String title, String borrower, int daysOverdue, double penalty) {}
-    private final ObservableList<OverdueItem> overdueItems =
-            FXCollections.observableArrayList();
+    private final ObservableList<OverdueItem> overdueItems = FXCollections.observableArrayList();
 
     // =========================================================
     // Constructeur
     // =========================================================
-
     public DashboardViewModel(DashboardService dashboardService,
                               DocumentRepository documentRepository,
-                              AdherentRepository adherentRepository,
                               EmpruntRepository empruntRepository,
-                              PenaliteRepository penaliteRepository,
                               String username,
                               String role) {
 
         this.dashboardService   = Objects.requireNonNull(dashboardService);
         this.documentRepository = Objects.requireNonNull(documentRepository);
-        this.adherentRepository = Objects.requireNonNull(adherentRepository);
         this.empruntRepository  = Objects.requireNonNull(empruntRepository);
-        this.penaliteRepository = Objects.requireNonNull(penaliteRepository);
-        this.username           = Objects.requireNonNull(username);
-        this.role               = Objects.requireNonNull(role);
+        this.username = username;
+        this.role     = role;
 
         loansByMonth.setName("Emprunts / mois");
         docsByType.setName("Documents par type");
-        docsByGenreBar.setName("Top 10 genres");
+        docsByGenreBar.setName("Top 10 Genres Empruntés");
 
-        // Chargement initial
-        refresh();
+        // Chargement initial (par défaut sur 365 jours ou "Tout")
+        refresh(365);
     }
 
     // =========================================================
-    // Rafraîchissement global
+    // Rafraîchissement avec Filtre
     // =========================================================
 
     /**
-     * Rafraîchit tous les KPI et données graphiques en asynchrone.
+     * Rafraîchit les données selon la période demandée.
+     * @param joursHistorique Nombre de jours en arrière (ex: 7, 30, 90).
      */
-    public void refresh() {
+    public void refresh(int joursHistorique) {
         runSafely(() -> {
-
             LocalDateTime now  = LocalDateTime.now();
             LocalDate today    = LocalDate.now();
+            // Calcul de la date limite (Aujourd'hui - X jours)
+            LocalDate dateLimite = today.minusDays(joursHistorique);
 
-            // --- Récupération des compteurs de base via le service ---
-            int docs      = dashboardService.countDocuments();
-            int adherents = dashboardService.countAdherents();
-            int emprunts  = dashboardService.countEmprunts();
-            double penal  = dashboardService.sumPenalites();
-            int retards   = dashboardService.countRetards();
+            // 1. Récupération des données BRUTES (Tout)
+            List<Document> allDocuments = documentRepository.findAll();
+            List<Emprunt>  allEmprunts  = empruntRepository.findAll();
+            List<Emprunt>  lateEmprunts = empruntRepository.findLateEmprunts(today);
 
-            // --- Chargement des entités nécessaires pour les métriques ---
-            List<Document> allDocuments   = documentRepository.findAll();
-            List<Emprunt>  allEmprunts    = empruntRepository.findAll();
-            List<Emprunt>  activeEmprunts = empruntRepository.findActiveEmprunts();
-            List<Emprunt>  lateEmprunts   = empruntRepository.findLateEmprunts(today);
+            // --- CORRECTION MAJEURE : Création du Dictionnaire des Documents ---
+            // Permet de retrouver le Genre même si l'objet Emprunt est incomplet
+            Map<Long, Document> dictionnaireDocuments = new HashMap<>();
+            for (Document d : allDocuments) {
+                if (d.getId() != null) {
+                    dictionnaireDocuments.put(d.getId(), d);
+                }
+            }
 
-            // --- KPIs simples ---
-            double rotation   = (docs > 0) ? (emprunts * 12.0) / docs : 0.0;
-            double occupation = (docs > 0) ? (emprunts * 100.0) / docs : 0.0;
+            // 2. FILTRAGE MANUEL : On ne garde que les emprunts de la période
+            List<Emprunt> empruntsFiltres = new ArrayList<>();
+            for (Emprunt e : allEmprunts) {
+                if (e.getDateEmprunt() != null &&
+                   (e.getDateEmprunt().isAfter(dateLimite) || e.getDateEmprunt().isEqual(dateLimite))) {
+                    empruntsFiltres.add(e);
+                }
+            }
 
-            // --- Données pour les graphiques ---
-            List<XYChart.Data<String, Number>> loansData    = computeLoansByMonth(allEmprunts, today);
-            List<PieChart.Data>                genreData    = computeDocsByGenre(allDocuments);
-            List<XYChart.Data<String, Number>> docTypeData  = computeDocsByType(allDocuments);
-            List<XYChart.Data<String, Number>> genreBarData = computeDocsByGenreBarData(allDocuments);
+            // --- Calcul des KPIs ---
+            int docsCount      = allDocuments.size();
+            int adherentsCount = dashboardService.countAdherents();
+            int empruntsCount  = empruntsFiltres.size(); // Volume sur la période
+            double penalites   = dashboardService.sumPenalites();
+            int retardsCount   = dashboardService.countRetards();
 
+            double rotation   = (docsCount > 0) ? (empruntsCount * 12.0) / docsCount : 0.0;
+            double occupation = (docsCount > 0) ? (dashboardService.countEmprunts() * 100.0) / docsCount : 0.0;
+
+            // --- Calculs Graphiques (Avec la liste FILTRÉE) ---
+            
+            // CORRECTION : Calcul manquant ajouté ici
+            var graphEmpruntsMois = computeLoansByMonth(empruntsFiltres); 
+            
+            // CORRECTION : Utilisation de la méthode avec le dictionnaire
+            var graphTopGenres    = computeTopGenresEmpruntes(empruntsFiltres, dictionnaireDocuments); 
+            
+            var listeActiveUsers  = computeActiveBorrowers(empruntsFiltres);
+
+            // --- Calculs Graphiques (Données Globales de stock) ---
+            var graphPieStock     = computeDocsByGenreStock(allDocuments);
+            var graphTypeStock    = computeDocsByType(allDocuments);
+
+            // --- Autres listes ---
+            var listeRecents = computeRecentLoans(empruntsFiltres);
+            var listeRetards = computeOverdueItems(lateEmprunts, today);
+
+            // --- KPIs Avancés (Mixte) ---
+            double kpiUtilisation = computeTauxUtilisationFonds(allDocuments, empruntsFiltres);
+            double kpiReemprunt   = computeTauxReemprunt(empruntsFiltres);
+            double kpiDureeMoy    = computeDureeMoyenne(empruntsFiltres);
+            double kpiTauxRetard  = (empruntsCount > 0) ? (retardsCount * 100.0) / empruntsCount : 0.0;
+            double kpiEngagement  = computeTauxEngagementAdherents(adherentsCount, empruntsFiltres);
+
+            // 3. Mise à jour de l'interface (Thread JavaFX)
             Platform.runLater(() -> {
-                docsByGenreBar.getData().setAll(genreBarData);
-            });
-            // --- Listes dynamiques (derniers emprunts, top adhérents, retards) ---
-            List<RecentLoan>     recentData  = computeRecentLoans(allEmprunts);
-            List<ActiveBorrower> activeData = computeActiveBorrowers(allEmprunts, today);
-            List<OverdueItem>    overdueData = computeOverdueItems(lateEmprunts, today);
-
-            // --- KPIs avancés ---
-            double kpiUtilisationFonds = computeTauxUtilisationFonds(allDocuments, allEmprunts);
-            double kpiReemprunt        = computeTauxReemprunt(allEmprunts);
-            double kpiDureeMoyenne     = computeDureeMoyenne(allEmprunts);
-            double kpiTauxRetard       = (emprunts > 0) ? (retards * 100.0) / emprunts : 0.0;
-            double kpiEngagementAdh    = computeTauxEngagementAdherents(adherents, allEmprunts);
-
-            // --- Mise à jour des propriétés sur le thread JavaFX ---
-            Platform.runLater(() -> {
-                // KPIs simples
-                totalDocuments.set(docs);
-                totalAdherents.set(adherents);
-                totalEmprunts.set(emprunts);
-                penalitesEnCours.set(penal);
-                totalRetards.set(retards);
+                totalDocuments.set(docsCount);
+                totalAdherents.set(adherentsCount);
+                totalEmprunts.set(empruntsCount);
+                penalitesEnCours.set(penalites);
+                totalRetards.set(retardsCount);
                 tauxRotation.set(rotation);
                 tauxOccupation.set(occupation);
                 lastUpdated.set(now);
 
-                // KPIs avancés
-                tauxUtilisationFonds.set(kpiUtilisationFonds);
+                tauxUtilisationFonds.set(kpiUtilisation);
                 tauxReemprunt.set(kpiReemprunt);
-                dureeMoyenneEmprunts.set(kpiDureeMoyenne);
+                dureeMoyenneEmprunts.set(kpiDureeMoy);
                 tauxRetard.set(kpiTauxRetard);
-                tauxEngagementAdherents.set(kpiEngagementAdh);
+                tauxEngagementAdherents.set(kpiEngagement);
 
-                // Graphiques
-                loansByMonth.getData().setAll(loansData);
-                docsByGenre.setAll(genreData);
-                docsByType.getData().setAll(docTypeData);
-                docsByGenreBar.getData().setAll(genreBarData);
+                // Mise à jour des listes observables pour les graphes
+                loansByMonth.getData().setAll(graphEmpruntsMois);
+                docsByGenre.setAll(graphPieStock);
+                docsByType.getData().setAll(graphTypeStock);
+                docsByGenreBar.getData().setAll(graphTopGenres); 
 
-                // Listes
-                recentLoans.setAll(recentData);
-                activeBorrowers.setAll(activeData);
-                overdueItems.setAll(overdueData);
+                recentLoans.setAll(listeRecents);
+                activeBorrowers.setAll(listeActiveUsers);
+                overdueItems.setAll(listeRetards);
             });
         });
     }
 
     // =========================================================
-    // Méthodes privées : calculs
+    // Méthodes de Calcul (Simplifiées)
     // =========================================================
 
-    private List<XYChart.Data<String, Number>> computeLoansByMonth(List<Emprunt> allEmprunts,
-                                                                   LocalDate today) {
+    /**
+     * Top 10 des genres les plus empruntés (sur la liste filtrée).
+     */
+    private List<XYChart.Data<String, Number>> computeTopGenresEmpruntes(List<Emprunt> emprunts, Map<Long, Document> docMap) {
+        Map<String, Integer> compteur = new HashMap<>();
+
+        for (Emprunt e : emprunts) {
+            Long docId = (e.getDocument() != null) ? e.getDocument().getId() : null;
+            
+            // On cherche dans la Map complète pour avoir le vrai Genre
+            if (docId != null && docMap.containsKey(docId)) {
+                Document realDoc = docMap.get(docId);
+                String genre = (realDoc.getGenre() == null || realDoc.getGenre().isBlank()) ? "Inconnu" : realDoc.getGenre();
+                compteur.merge(genre, 1, Integer::sum);
+            }
+        }
+        
+        // ... Tri et conversion en XYChart.Data (code identique à avant) ...
+        List<Map.Entry<String, Integer>> listeTriee = new ArrayList<>(compteur.entrySet());
+        listeTriee.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+
+        List<XYChart.Data<String, Number>> result = new ArrayList<>();
+        int count = 0;
+        for (Map.Entry<String, Integer> entry : listeTriee) {
+            result.add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
+            count++;
+            if (count >= 10) break;
+        }
+        return result;
+    }
+
+    private List<ActiveBorrower> computeActiveBorrowers(List<Emprunt> emprunts) {
+        Map<Long, Integer> countById = new HashMap<>();
+        Map<Long, String> nameById = new HashMap<>();
+
+        for (Emprunt e : emprunts) {
+            if (e.getEmprunteur() != null && e.getEmprunteur().getId() != null) {
+                Long id = e.getEmprunteur().getId();
+                countById.merge(id, 1, Integer::sum);
+                nameById.putIfAbsent(id, e.getEmprunteur().getNomComplet());
+            }
+        }
+
+        // Tri descendant
+        return countById.entrySet().stream()
+                .sorted(Map.Entry.<Long, Integer>comparingByValue(Comparator.reverseOrder()))
+                .limit(10)
+                .map(e -> new ActiveBorrower(nameById.get(e.getKey()), e.getValue()))
+                .toList();
+    }
+
+    private List<XYChart.Data<String, Number>> computeLoansByMonth(List<Emprunt> emprunts) {
         Map<String, Integer> countByMonth = new LinkedHashMap<>();
 
-        for (Emprunt e : allEmprunts) {
-            if (e.getDateEmprunt() == null) continue;
-            if (e.getDateEmprunt().getYear() != today.getYear()) continue;
+        // On regroupe par "Mois-Année" pour ne pas mélanger Janvier 2024 et Janvier 2025
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM/yy");
 
-            String month = e.getDateEmprunt().getMonth().toString(); // ex: JANUARY
-            countByMonth.merge(month, 1, Integer::sum);
+        for (Emprunt e : emprunts) {
+            if (e.getDateEmprunt() != null) {
+                String label = e.getDateEmprunt().format(fmt);
+                countByMonth.merge(label, 1, Integer::sum);
+            }
         }
 
         List<XYChart.Data<String, Number>> data = new ArrayList<>();
         for (Map.Entry<String, Integer> entry : countByMonth.entrySet()) {
-            String label = entry.getKey().substring(0, 3); // "JAN", "FEB", etc.
-            data.add(new XYChart.Data<>(label, entry.getValue()));
-        }
-        return data;
-    }
-
-    private List<PieChart.Data> computeDocsByGenre(List<Document> allDocuments) {
-        Map<String, Integer> countByGenre = new LinkedHashMap<>();
-
-        for (Document d : allDocuments) {
-            String genre = d.getGenre();
-            if (genre == null || genre.isBlank()) {
-                genre = "Inconnu";
-            }
-            countByGenre.merge(genre, 1, Integer::sum);
-        }
-
-        List<PieChart.Data> data = new ArrayList<>();
-        for (Map.Entry<String, Integer> entry : countByGenre.entrySet()) {
-            data.add(new PieChart.Data(entry.getKey(), entry.getValue()));
-        }
-        return data;
-    }
-
-    private List<XYChart.Data<String, Number>> computeDocsByType(List<Document> allDocuments) {
-        Map<String, Integer> countByType = new LinkedHashMap<>();
-
-        for (Document d : allDocuments) {
-            String type = d.getDtype();
-            if (type == null || type.isBlank()) {
-                type = "Autre";
-            }
-            countByType.merge(type, 1, Integer::sum);
-        }
-
-        List<XYChart.Data<String, Number>> data = new ArrayList<>();
-        for (Map.Entry<String, Integer> entry : countByType.entrySet()) {
             data.add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
         }
+        
+        // Petit tri chronologique simple (optionnel si LinkedHashMap ne suffit pas)
+        data.sort(Comparator.comparing(d -> d.getXValue())); 
+        
         return data;
     }
 
-    /**
-     * Construit les données pour le bar chart "Top 10 genres".
-     * On part des {@link PieChart.Data} pour éviter de dupliquer la logique
-     * de comptage des genres.
-     */
-    /**
-     * Construit la série "Top 10 genres les plus présents au catalogue".
-     */
-    private List<XYChart.Data<String, Number>> computeDocsByGenreBarData(List<Document> allDocuments) {
-
-        // 1. Compter par genre
+    // Pie Chart : Stock global (On garde allDocuments)
+    private List<PieChart.Data> computeDocsByGenreStock(List<Document> documents) {
         Map<String, Integer> countByGenre = new HashMap<>();
-
-        for (Document d : allDocuments) {
-            String genre = (d.getGenre() == null || d.getGenre().isBlank())
-                    ? "Inconnu"
-                    : d.getGenre();
-            countByGenre.merge(genre, 1, Integer::sum);
+        for (Document d : documents) {
+            String g = (d.getGenre() == null || d.getGenre().isBlank()) ? "Inconnu" : d.getGenre();
+            countByGenre.merge(g, 1, Integer::sum);
         }
-
-        // 2. Trier décroissant et garder TOP 10
-        return countByGenre.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
-                .limit(10)
-                .map(e -> new XYChart.Data<String, Number>(e.getKey(), e.getValue()))
-                .toList();
+        List<PieChart.Data> result = new ArrayList<>();
+        for (var entry : countByGenre.entrySet()) {
+            result.add(new PieChart.Data(entry.getKey(), entry.getValue()));
+        }
+        return result;
     }
 
-    private List<RecentLoan> computeRecentLoans(List<Emprunt> allEmprunts) {
-        List<Emprunt> copy = new ArrayList<>(allEmprunts);
+    private List<XYChart.Data<String, Number>> computeDocsByType(List<Document> documents) {
+        Map<String, Integer> countByType = new HashMap<>();
+        for (Document d : documents) {
+            String t = (d.getDtype() == null) ? "Autre" : d.getDtype();
+            countByType.merge(t, 1, Integer::sum);
+        }
+        List<XYChart.Data<String, Number>> result = new ArrayList<>();
+        for (var entry : countByType.entrySet()) {
+            result.add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
+        }
+        return result;
+    }
 
-        // On retire les emprunts incomplets
-        copy.removeIf(e -> e.getDateEmprunt() == null ||
-                           e.getDocument() == null ||
-                           e.getEmprunteur() == null);
-
-        // Plus récents d'abord
+    private List<RecentLoan> computeRecentLoans(List<Emprunt> emprunts) {
+        // Copie pour trier sans toucher à l'original
+        List<Emprunt> copy = new ArrayList<>(emprunts);
+        // Tri : date décroissante (plus récent en premier)
         copy.sort((e1, e2) -> e2.getDateEmprunt().compareTo(e1.getDateEmprunt()));
 
         List<RecentLoan> result = new ArrayList<>();
         DateTimeFormatter fmt = DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT);
 
-        int limit = Math.min(5, copy.size());
-        for (int i = 0; i < limit; i++) {
+        int max = Math.min(5, copy.size());
+        for (int i = 0; i < max; i++) {
             Emprunt e = copy.get(i);
-            result.add(new RecentLoan(
-                    e.getDocument().getTitre(),
-                    e.getEmprunteur().getNomComplet(),
-                    e.getDateEmprunt().format(fmt),
-                    e.getDocument().getCoverRef()
-            ));
-        }
-        return result;
-    }
-
-    private List<ActiveBorrower> computeActiveBorrowers(List<Emprunt> allEmprunts, LocalDate today) {
-        LocalDate from = today.minusDays(30); // fenêtre des 30 jours
-
-        // idAdherent -> nb emprunts
-        Map<Long, Integer> countByAdherentId = new HashMap<>();
-        // idAdherent -> nom (pour affichage)
-        Map<Long, String> nameById = new HashMap<>();
-
-        for (Emprunt e : allEmprunts) {
-            if (e.getDateEmprunt() == null) continue;
-            if (e.getDateEmprunt().isBefore(from)) continue; // on ignore les emprunts trop anciens
-
-            Adherent adherent = e.getEmprunteur();
-            if (adherent == null || adherent.getId() == null) continue;
-
-            Long id = adherent.getId();
-
-            // Compte + nom
-            countByAdherentId.merge(id, 1, Integer::sum);
-            nameById.putIfAbsent(id, adherent.getNomComplet());
-        }
-
-        // tri décroissant, limite 10
-        return countByAdherentId.entrySet().stream()
-                .sorted(Map.Entry.<Long, Integer>comparingByValue(Comparator.reverseOrder()))
-                .limit(10)
-                .map(e -> new ActiveBorrower(
-                        nameById.get(e.getKey()),
-                        e.getValue()
-                ))
-                .toList();
-    }
-    private List<OverdueItem> computeOverdueItems(List<Emprunt> lateEmprunts, LocalDate today) {
-        List<OverdueItem> result = new ArrayList<>();
-
-        for (Emprunt e : lateEmprunts) {
-            if (e.getDocument() == null || e.getEmprunteur() == null) continue;
-
-            int jours   = (int) e.joursDeRetard(today);
-            double pen  = e.penaliteCourante(today).amount().doubleValue();
-
-            result.add(new OverdueItem(
-                    e.getDocument().getTitre(),
-                    e.getEmprunteur().getNomComplet(),
-                    jours,
-                    pen
-            ));
-        }
-        return result;
-    }
-
-    // =========================================================
-    // KPIs avancés
-    // =========================================================
-
-    private double computeTauxUtilisationFonds(List<Document> docs, List<Emprunt> allEmprunts) {
-        if (docs.isEmpty()) return 0.0;
-
-        Set<Document> docsEmpruntes = new HashSet<>();
-        for (Emprunt e : allEmprunts) {
-            if (e.getDocument() != null) {
-                docsEmpruntes.add(e.getDocument());
+            if (e.getDocument() != null && e.getEmprunteur() != null) {
+                result.add(new RecentLoan(
+                        e.getDocument().getTitre(),
+                        e.getEmprunteur().getNomComplet(),
+                        e.getDateEmprunt().format(fmt),
+                        e.getDocument().getCoverRef()
+                ));
             }
         }
-        return (docsEmpruntes.size() * 100.0) / docs.size();
+        return result;
     }
 
-    private double computeTauxReemprunt(List<Emprunt> allEmprunts) {
-        Map<Document, Integer> countByDoc = new HashMap<>();
-
-        for (Emprunt e : allEmprunts) {
-            Document d = e.getDocument();
-            if (d == null) continue;
-            countByDoc.merge(d, 1, Integer::sum);
+    private List<OverdueItem> computeOverdueItems(List<Emprunt> lateEmprunts, LocalDate today) {
+        List<OverdueItem> list = new ArrayList<>();
+        for (Emprunt e : lateEmprunts) {
+            if (e.getDocument() != null && e.getEmprunteur() != null) {
+                list.add(new OverdueItem(
+                        e.getDocument().getTitre(),
+                        e.getEmprunteur().getNomComplet(),
+                        (int) e.joursDeRetard(today),
+                        e.penaliteCourante(today).amount().doubleValue()
+                ));
+            }
         }
-
-        if (countByDoc.isEmpty()) return 0.0;
-
-        int docsTotal = countByDoc.size();
-        int docsReemprunt = 0;
-        for (int count : countByDoc.values()) {
-            if (count >= 2) docsReemprunt++;
-        }
-
-        return (docsReemprunt * 100.0) / docsTotal;
+        return list;
     }
 
-    private double computeDureeMoyenne(List<Emprunt> allEmprunts) {
+    // =========================================================
+    // Calculs KPIs Avancés (Utilisant des boucles simples)
+    // =========================================================
+
+    private double computeTauxUtilisationFonds(List<Document> allDocs, List<Emprunt> empruntsFiltres) {
+        if (allDocs.isEmpty()) return 0.0;
+        
+        Set<Long> idsLivresEmpruntes = new HashSet<>();
+        for (Emprunt e : empruntsFiltres) {
+            if (e.getDocument() != null) {
+                idsLivresEmpruntes.add(e.getDocument().getId());
+            }
+        }
+        return (idsLivresEmpruntes.size() * 100.0) / allDocs.size();
+    }
+
+    private double computeTauxReemprunt(List<Emprunt> empruntsFiltres) {
+        if (empruntsFiltres.isEmpty()) return 0.0;
+        
+        Map<Long, Integer> countByDocId = new HashMap<>();
+        for (Emprunt e : empruntsFiltres) {
+            if (e.getDocument() != null) {
+                countByDocId.merge(e.getDocument().getId(), 1, Integer::sum);
+            }
+        }
+        
+        int docsEmpruntesPlusDUneFois = 0;
+        for (Integer count : countByDocId.values()) {
+            if (count > 1) docsEmpruntesPlusDUneFois++;
+        }
+        
+        return (docsEmpruntesPlusDUneFois * 100.0) / countByDocId.size();
+    }
+
+    private double computeDureeMoyenne(List<Emprunt> empruntsFiltres) {
         long totalJours = 0;
-        int count       = 0;
-
-        for (Emprunt e : allEmprunts) {
-            if (e.getDateEmprunt() != null && e.getDateRetourEffective() != null) {
-                long jours = ChronoUnit.DAYS.between(e.getDateEmprunt(), e.getDateRetourEffective());
-                totalJours += jours;
+        int count = 0;
+        for (Emprunt e : empruntsFiltres) {
+            if (e.getDateRetourEffective() != null) {
+                totalJours += ChronoUnit.DAYS.between(e.getDateEmprunt(), e.getDateRetourEffective());
                 count++;
             }
         }
-
-        if (count == 0) return 0.0;
-        return (double) totalJours / count;
+        return (count == 0) ? 0.0 : (double) totalJours / count;
     }
 
-    private double computeTauxEngagementAdherents(int totalAdherents,
-                                                  List<Emprunt> allEmprunts) {
+    private double computeTauxEngagementAdherents(int totalAdherents, List<Emprunt> empruntsFiltres) {
         if (totalAdherents == 0) return 0.0;
-
-        Set<Adherent> distinctAdherents = new HashSet<>();
-        for (Emprunt e : allEmprunts) {
+        
+        Set<Long> idsAdherentsActifs = new HashSet<>();
+        for (Emprunt e : empruntsFiltres) {
             if (e.getEmprunteur() != null) {
-                distinctAdherents.add(e.getEmprunteur());
+                idsAdherentsActifs.add(e.getEmprunteur().getId());
             }
         }
-        return (distinctAdherents.size() * 100.0) / totalAdherents;
+        return (idsAdherentsActifs.size() * 100.0) / totalAdherents;
     }
 
     // =========================================================
-    // Utilitaires threading
+    // Utilitaires
     // =========================================================
 
     private void runSafely(Runnable op) {
@@ -463,63 +426,49 @@ public class DashboardViewModel {
         setError("");
         CompletableFuture.runAsync(op).whenComplete((res, ex) -> {
             if (ex != null) {
-                Throwable cause = (ex.getCause() != null) ? ex.getCause() : ex;
-                String msg = (cause.getMessage() != null) ? cause.getMessage() : cause.toString();
-                setError(msg);
+                ex.printStackTrace();
+                setError(ex.getMessage());
             }
             setLoading(false);
         });
     }
 
-    private void setLoading(boolean value) {
-        if (Platform.isFxApplicationThread()) {
-            loading.set(value);
-        } else {
-            Platform.runLater(() -> loading.set(value));
-        }
+    private void setLoading(boolean v) {
+        if (Platform.isFxApplicationThread()) loading.set(v);
+        else Platform.runLater(() -> loading.set(v));
     }
 
-    private void setError(String msg) {
-        if (Platform.isFxApplicationThread()) {
-            error.set(msg);
-        } else {
-            Platform.runLater(() -> error.set(msg));
-        }
+    private void setError(String v) {
+        if (Platform.isFxApplicationThread()) error.set(v);
+        else Platform.runLater(() -> error.set(v));
     }
 
     // =========================================================
-    // Getters exposés à la vue
+    // Getters
     // =========================================================
-
-    public ReadOnlyIntegerProperty totalDocumentsProperty()           { return totalDocuments; }
-    public ReadOnlyIntegerProperty totalAdherentsProperty()           { return totalAdherents; }
-    public ReadOnlyIntegerProperty totalEmpruntsProperty()            { return totalEmprunts; }
-    public ReadOnlyDoubleProperty penalitesEnCoursProperty()          { return penalitesEnCours; }
-    public ReadOnlyIntegerProperty totalRetardsProperty()             { return totalRetards; }
-    public ReadOnlyDoubleProperty tauxRotationProperty()              { return tauxRotation; }
-    public ReadOnlyDoubleProperty tauxOccupationProperty()            { return tauxOccupation; }
-
-    public ReadOnlyDoubleProperty tauxUtilisationFondsProperty()      { return tauxUtilisationFonds; }
-    public ReadOnlyDoubleProperty tauxReempruntProperty()             { return tauxReemprunt; }
-    public ReadOnlyDoubleProperty dureeMoyenneEmpruntsProperty()      { return dureeMoyenneEmprunts; }
-    public ReadOnlyDoubleProperty tauxRetardProperty()                { return tauxRetard; }
-    public ReadOnlyDoubleProperty tauxEngagementAdherentsProperty()   { return tauxEngagementAdherents; }
-
-    public BooleanProperty          loadingProperty()      { return loading; }
-    public StringProperty           errorProperty()        { return error; }
+    public ReadOnlyIntegerProperty totalDocumentsProperty() { return totalDocuments; }
+    public ReadOnlyIntegerProperty totalAdherentsProperty() { return totalAdherents; }
+    public ReadOnlyIntegerProperty totalEmpruntsProperty() { return totalEmprunts; }
+    public ReadOnlyDoubleProperty penalitesEnCoursProperty() { return penalitesEnCours; }
+    public ReadOnlyIntegerProperty totalRetardsProperty() { return totalRetards; }
+    public ReadOnlyDoubleProperty tauxRotationProperty() { return tauxRotation; }
+    public ReadOnlyDoubleProperty tauxOccupationProperty() { return tauxOccupation; }
+    public ReadOnlyDoubleProperty tauxUtilisationFondsProperty() { return tauxUtilisationFonds; }
+    public ReadOnlyDoubleProperty tauxReempruntProperty() { return tauxReemprunt; }
+    public ReadOnlyDoubleProperty dureeMoyenneEmpruntsProperty() { return dureeMoyenneEmprunts; }
+    public ReadOnlyDoubleProperty tauxRetardProperty() { return tauxRetard; }
+    public ReadOnlyDoubleProperty tauxEngagementAdherentsProperty() { return tauxEngagementAdherents; }
+    public BooleanProperty loadingProperty() { return loading; }
+    public StringProperty errorProperty() { return error; }
     public ObjectProperty<LocalDateTime> lastUpdatedProperty() { return lastUpdated; }
 
-    public XYChart.Series<String, Number> loansByMonthSeries()  { return loansByMonth; }
-    public ObservableList<PieChart.Data>  docsByGenre()         { return docsByGenre; }
-    public XYChart.Series<String, Number> docsByTypeSeries()    { return docsByType; }
-
-    /** Série utilisée par le BarChart "Top 10 genres" dans le Dashboard. */
-    public XYChart.Series<String, Number> docsByGenreSeries()   { return docsByGenreBar; }
-
-    public ObservableList<RecentLoan>      recentLoans()        { return recentLoans; }
-    public ObservableList<ActiveBorrower>  getActiveBorrowers() { return activeBorrowers; }
-    public ObservableList<OverdueItem>     getOverdueItems()    { return overdueItems; }
-
+    public XYChart.Series<String, Number> loansByMonthSeries() { return loansByMonth; }
+    public ObservableList<PieChart.Data> docsByGenre() { return docsByGenre; }
+    public XYChart.Series<String, Number> docsByTypeSeries() { return docsByType; }
+    public XYChart.Series<String, Number> docsByGenreSeries() { return docsByGenreBar; }
+    public ObservableList<RecentLoan> recentLoans() { return recentLoans; }
+    public ObservableList<ActiveBorrower> getActiveBorrowers() { return activeBorrowers; }
+    public ObservableList<OverdueItem> getOverdueItems() { return overdueItems; }
     public String getUsername() { return username; }
-    public String getRole()     { return role; }
+    public String getRole() { return role; }
 }

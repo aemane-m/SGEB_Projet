@@ -5,40 +5,51 @@ import java.util.Optional;
 
 /**
  * Interface générique de base pour un dépôt (Repository Pattern).
- * @param <T>  Le type de l'entité
- * @param <ID> Le type de l'identifiant de l'entité
+ *
+ * <p>
+ * Un {@code Repository} encapsule les opérations de base pour gérer
+ * des entités : sauvegarde, lecture, suppression, comptage.
+ * </p>
+ *
+ * @param <T>  type de l'entité (ex : Adherent, Document, Emprunt)
+ * @param <ID> type de l'identifiant (ex : Long)
  */
 public interface Repository<T, ID> {
 
     /**
-     * Sauvegarde (crée ou met à jour) une entité.
-     * @param entity L'entité à sauvegarder.
-     * @return L'entité sauvegardée (potentiellement avec un ID mis à jour).
+     * Sauvegarde une entité (création ou mise à jour).
+     *
+     * @param entity entité à sauvegarder
+     * @return entité sauvegardée (souvent avec un ID rempli ou mis à jour)
      */
     T save(T entity);
 
     /**
-     * Trouve une entité par son identifiant.
-     * @param id L'ID à rechercher.
-     * @return Un Optional contenant l'entité si elle est trouvée.
+     * Recherche une entité par son identifiant.
+     *
+     * @param id identifiant à rechercher
+     * @return un {@link Optional} contenant l'entité si trouvée, vide sinon
      */
     Optional<T> findById(ID id);
 
     /**
-     * Récupère toutes les entités de ce type.
-     * @return Une liste de toutes les entités.
+     * Retourne toutes les entités gérées par ce repository.
+     *
+     * @return liste de toutes les entités
      */
     List<T> findAll();
 
     /**
      * Supprime une entité par son identifiant.
-     * @param id L'ID de l'entité à supprimer.
+     *
+     * @param id identifiant de l'entité à supprimer
      */
     void delete(ID id);
 
     /**
      * Compte le nombre total d'entités.
-     * @return Le nombre total d'entités.
+     *
+     * @return nombre d'entités stockées
      */
     long count();
 }

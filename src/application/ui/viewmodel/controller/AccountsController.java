@@ -12,7 +12,7 @@ import javafx.scene.layout.VBox;
  * Contrôleur de la vue de gestion des comptes (ADMIN uniquement).
  *
  * - Affiche tous les comptes (admins + adhérents)
- * - Permet d'activer / suspendre
+ * - Permet d'activer / suspendre un compte
  * - Permet de supprimer un compte (avec confirmation)
  */
 public final class AccountsController {
@@ -38,98 +38,122 @@ public final class AccountsController {
         this.viewModel = viewModel;
     }
 
+    // =====================================================================
+    // Initialisation FXML
+    // =====================================================================
+
     @FXML
     private void initialize() {
-        // --- Table ---
+        setupTable();
+        setupBindings();
+        setupActions();
+
+        // Charge la liste au premier affichage
+        viewModel.refresh();
+    }
+
+    // =====================================================================
+    // Table & colonnes
+    // =====================================================================
+
+    private void setupTable() {
         table.setItems(viewModel.getAccounts());
 
         colEmail.setCellValueFactory(cd ->
-                new SimpleStringProperty(cd.getValue().email()));
+                new SimpleStringProperty(cd.getValue().email())
+        );
 
         colRole.setCellValueFactory(cd ->
-                new SimpleStringProperty(cd.getValue().roleName()));
+                new SimpleStringProperty(cd.getValue().roleName())
+        );
 
         colStatus.setCellValueFactory(cd -> {
             String raw = cd.getValue().status();
             String label;
+
             if (raw == null) {
                 label = "Inconnu";
             } else {
                 switch (raw.toUpperCase()) {
-                    case "ACTIVE"   -> label = "Actif";
-                    case "PENDING"  -> label = "En attente";
-                    case "SUSPENDED"-> label = "Suspendu";
-                    default         -> label = raw;
+                    case "ACTIVE"    -> label = "Actif";
+                    case "PENDING"   -> label = "En attente";
+                    case "SUSPENDED" -> label = "Suspendu";
+                    default          -> label = raw;
                 }
             }
             return new SimpleStringProperty(label);
         });
 
         colPwdMustChange.setCellValueFactory(cd ->
-                new SimpleStringProperty(cd.getValue().passwordMustChange() ? "Oui" : "Non"));
-
-        // Sélection ↔ ViewModel
-        table.getSelectionModel().selectedItemProperty().addListener(
-                (obs, oldVal, newVal) -> viewModel.setSelected(newVal)
+                new SimpleStringProperty(cd.getValue().passwordMustChange() ? "Oui" : "Non")
         );
 
-        // --- Boutons ---
-        btnRefresh.setOnAction(e -> viewModel.refresh());
-        btnToggleStatus.setOnAction(e -> viewModel.toggleStatusForSelected());
-        btnDelete.setOnAction(e -> onDeleteAccountClicked());   // <-- confirmation ici
-
-        // Désactiver pendant chargement ou si rien de sélectionné
-        btnToggleStatus.disableProperty().bind(
-                viewModel.loadingProperty().or(
-                        Bindings.isNull(viewModel.selectedProperty()))
-        );
-        btnDelete.disableProperty().bind(
-                viewModel.loadingProperty().or(
-                        Bindings.isNull(viewModel.selectedProperty()))
-        );
-        btnRefresh.disableProperty().bind(viewModel.loadingProperty());
-
-        // --- Erreur ---
-        errorLabel.textProperty().bind(viewModel.errorProperty());
-        errorLabel.visibleProperty().bind(
-                viewModel.errorProperty().isNotEmpty()
-        );
-        errorLabel.managedProperty().bind(errorLabel.visibleProperty());
-
-        // --- Progress ---
-        progress.visibleProperty().bind(viewModel.loadingProperty());
-        progress.managedProperty().bind(progress.visibleProperty());
-
-        // Optionnel : charger la liste au premier affichage
-        viewModel.refresh();
+        // Propagation de la sélection vers le ViewModel
+        table.getSelectionModel()
+             .selectedItemProperty()
+             .addListener((obs, oldVal, newVal) -> viewModel.setSelected(newVal));
     }
 
-    // =========================================================
+    // =====================================================================
+    // Bindings UI ↔ ViewModel
+    // =====================================================================
+
+    private void setupBindings() {
+        // Boutons
+        btnRefresh.disableProperty().bind(viewModel.loadingProperty());
+
+        btnToggleStatus.disableProperty().bind(
+                viewModel.loadingProperty().or(
+                        Bindings.isNull(viewModel.selectedProperty())
+                )
+        );
+
+        btnDelete.disableProperty().bind(
+                viewModel.loadingProperty().or(
+                        Bindings.isNull(viewModel.selectedProperty())
+                )
+        );
+
+        // Erreurs
+        errorLabel.textProperty().bind(viewModel.errorProperty());
+        errorLabel.visibleProperty().bind(viewModel.errorProperty().isNotEmpty());
+        errorLabel.managedProperty().bind(errorLabel.visibleProperty());
+
+        // Indicateur de chargement
+        progress.visibleProperty().bind(viewModel.loadingProperty());
+        progress.managedProperty().bind(progress.visibleProperty());
+    }
+
+    // =====================================================================
+    // Actions
+    // =====================================================================
+
+    private void setupActions() {
+        btnRefresh.setOnAction(e -> viewModel.refresh());
+        btnToggleStatus.setOnAction(e -> viewModel.toggleStatusForSelected());
+        btnDelete.setOnAction(e -> onDeleteAccountClicked());
+    }
+
+    // =====================================================================
     //  Confirmation et suppression
-    // =========================================================
+    // =====================================================================
 
     @FXML
     private void onDeleteAccountClicked() {
-        AccountService.UserAccountSummary selected =
+        AccountService.UserAccountSummary selectedAccount =
                 table.getSelectionModel().getSelectedItem();
 
-        if (selected == null) {
-            // Pas de compte sélectionné : on informe simplement l'utilisateur
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Suppression de compte");
-            alert.setHeaderText(null);
-            alert.setContentText("Aucun compte sélectionné.");
-            alert.showAndWait();
+        if (selectedAccount == null) {
+            showInfo("Suppression de compte", "Aucun compte sélectionné.");
             return;
         }
 
-        // Confirmation avant suppression
-        if (!confirmDeletion(selected)) {
-            // L'utilisateur a annulé
+        if (!confirmDeletion(selectedAccount)) {
+            // L’utilisateur a annulé
             return;
         }
 
-        // On délègue la vraie suppression au ViewModel
+        // La logique métier est dans le ViewModel
         viewModel.deleteSelected();
     }
 
@@ -150,5 +174,13 @@ public final class AccountsController {
 
         var result = alert.showAndWait();
         return result.isPresent() && result.get() == btnSupprimer;
+    }
+
+    private void showInfo(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 }

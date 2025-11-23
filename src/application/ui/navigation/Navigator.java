@@ -5,7 +5,7 @@ import application.domain.service.AccountService;
 /**
  * Abstraction de la navigation UI.
  *
- * L’implémentation (FxNavigator) se charge de :
+ * L’implémentation (ex : {@code FxNavigator}) se charge de :
  *  - afficher le Shell principal,
  *  - charger les vues FXML,
  *  - injecter les ViewModels,
@@ -17,10 +17,10 @@ public interface Navigator {
     void showShell();
 
     /**
-     * Navigation vers le Dashboard avec un contexte utilisateur.
-     * Utilisée typiquement après un login réussi.
+     * Navigation vers le Dashboard avec un contexte utilisateur
+     * (typiquement après un login réussi).
      *
-     * @param session session utilisateur (peut être null si déjà positionnée auparavant)
+     * @param session session utilisateur (peut être null si déjà positionnée)
      */
     void goToDashboard(AccountService.UserSession session);
 
@@ -59,7 +59,7 @@ public interface Navigator {
 
     /**
      * Navigue vers l'écran de création de compte adhérent (inscription publique).
-     * (peut provisoirement pointer vers la même vue que Login)
+     * Peut temporairement réutiliser la même vue que Login.
      */
     void goToRegister();
 
@@ -72,7 +72,6 @@ public interface Navigator {
     void goToChangePassword(AccountService.UserSession session);
 
     // --- Déconnexion ---
-    
 
     /**
      * Déconnexion de l'utilisateur :

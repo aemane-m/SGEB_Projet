@@ -6,41 +6,63 @@ import application.domain.core.security.Capability;
 import application.domain.core.security.Role;
 
 /**
- * <p><strong>Administrateur</strong> représente un utilisateur disposant
- * des droits complets sur le système SGEB.</p>
+ * Représente un <strong>administrateur du système SGEB</strong>.
  *
- * <p>Il hérite de {@link Personne} et possède un {@link Role}
- * fixe nommé <code>ADMIN</code>, contenant toutes les
- * {@link Capability} critiques du système.</p>
- *
- * <p>Les administrateurs peuvent :
- * <ul>
- *     <li>Gérer les adhérents et leurs emprunts</li>
- *     <li>Gérer le catalogue de documents</li>
- *     <li>Superviser les pénalités</li>
- *     <li>Consulter les statistiques globales</li>
- * </ul>
+ * <p>
+ * Un administrateur est une personne disposant des droits complets sur
+ * l'application. Il hérite de {@link Personne} et se voit attribuer un
+ * rôle fixe {@code ADMIN} contenant l’ensemble des {@link Capability}
+ * critiques du système.
  * </p>
  *
- * @see application.domain.core.personne.Personne
- * @see application.domain.core.personne.security.security.Role
- * @see application.domain.core.personne.security.security.Capability
+ * <h3>Responsabilités typiques d'un Administrateur</h3>
+ * <ul>
+ *     <li>Gérer les adhérents et leurs emprunts</li>
+ *     <li>Gérer et maintenir le catalogue de documents</li>
+ *     <li>Superviser et valider les pénalités</li>
+ *     <li>Accéder au tableau de bord et aux statistiques globales</li>
+ * </ul>
  *
- * @author SGEB
- * @version 1.0
+ * <p>
+ * Le rôle ADMIN ne peut pas être altéré par l’utilisateur et contient
+ * systématiquement toutes les capacités définies dans
+ * {@link Capability}.
+ * </p>
+ *
+ * <h3>Modèle d'autorisation (RBAC)</h3>
+ * <p>
+ * L’application utilise un système d’autorisations basé sur les rôles (RBAC) :
+ * {@link Role} → ensemble de {@link Capability}.  
+ * Cette structure permet d’écrire :
+ * </p>
+ *
+ * <pre>{@code
+ * Administrateur admin = ...;
+ * if (admin.peut(Capability.MANAGE_DOCUMENTS)) {
+ *     // action autorisée
+ * }
+ * }</pre>
+ *
+ * @see Personne
+ * @see Capability
+ * @see Role
  */
 public final class Administrateur extends Personne {
 
-    /** Rôle fixe associé à tout administrateur */
+    /** Rôle fixe associé à tout administrateur SGEB. */
     private final Role role;
 
+    // ======================================================================
+    // ============================= CONSTRUCTEURS ===========================
+    // ======================================================================
+
     /**
-     * Construit un administrateur avec un identifiant.
+     * Construit un administrateur avec un identifiant existant (chargement DB).
      *
-     * @param id identifiant unique
+     * @param id identifiant unique (non null après persistance)
      * @param nom nom de l’administrateur
      * @param prenom prénom de l’administrateur
-     * @param email adresse e-mail
+     * @param email e-mail de contact
      * @param telephone numéro de téléphone
      */
     public Administrateur(Long id, String nom, String prenom, String email, String telephone) {
@@ -49,11 +71,12 @@ public final class Administrateur extends Personne {
     }
 
     /**
-     * Construit un administrateur sans identifiant initial (ex: avant persistance).
+     * Construit un administrateur sans identifiant initial
+     * (utilisé lors de la création du premier compte via le Setup Wizard).
      *
      * @param nom nom de l’administrateur
      * @param prenom prénom de l’administrateur
-     * @param email adresse e-mail
+     * @param email e-mail de contact
      * @param telephone numéro de téléphone
      */
     public Administrateur(String nom, String prenom, String email, String telephone) {
@@ -61,13 +84,23 @@ public final class Administrateur extends Personne {
         this.role = initialiserRoleAdmin();
     }
 
+    // ======================================================================
+    // ============================== MÉTIER / RBAC ==========================
+    // ======================================================================
+
     /**
-     * Initialise le rôle ADMIN avec les capacités par défaut.
+     * Initialise le rôle ADMIN avec l'ensemble des capacités critiques.
      *
-     * @return rôle configuré avec ses capacités
+     * <p>
+     * Le rôle est créé en utilisant un pattern factory ({@link Role#of(String)}),
+     * puis enrichi avec les {@link Capability} prédéfinies.
+     * </p>
+     *
+     * @return instance immutable du rôle ADMIN
      */
     private Role initialiserRoleAdmin() {
         Role r = Role.of("ADMIN");
+
         for (Capability c : EnumSet.of(
                 Capability.MANAGE_ADHERENTS,
                 Capability.MANAGE_DOCUMENTS,
@@ -77,13 +110,14 @@ public final class Administrateur extends Personne {
         )) {
             r.addCapability(c);
         }
+
         return r;
     }
 
     /**
-     * Retourne le rôle de l’administrateur.
+     * Retourne le rôle attaché à l’administrateur.
      *
-     * @return rôle ADMIN
+     * @return rôle ADMIN contenant toutes les capabilities.
      */
     public Role getRole() {
         return role;
@@ -92,12 +126,16 @@ public final class Administrateur extends Personne {
     /**
      * Vérifie si l’administrateur possède une capacité donnée.
      *
-     * @param capability capacité à vérifier
-     * @return {@code true} si autorisé
+     * @param capability capacité à tester
+     * @return true si la capacité est présente dans le rôle ADMIN
      */
     public boolean peut(Capability capability) {
         return role.hasCapability(capability);
     }
+
+    // ======================================================================
+    // ================================ UTILITAIRE ===========================
+    // ======================================================================
 
     @Override
     public String toString() {

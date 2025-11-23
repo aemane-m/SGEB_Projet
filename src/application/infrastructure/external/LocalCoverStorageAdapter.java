@@ -16,111 +16,185 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Implémentation du port de stockage pour fichiers locaux.
- * Gère le téléchargement (URL) et la copie (local).
+ * Adaptateur d'infrastructure qui enregistre les couvertures (images)
+ * sur le disque local.
+ *
+ * Il sait :
+ * <ul>
+ *     <li>télécharger une image à partir d'une URL,</li>
+ *     <li>copier une image depuis un fichier local,</li>
+ *     <li>générer un objet {@link SavedCover} contenant les métadonnées.</li>
+ * </ul>
  */
 public class LocalCoverStorageAdapter implements CoverStoragePort {
 
+    /** Dossier où seront stockées les couvertures. */
     private final Path storagePath;
-    private final HttpClient http;
 
+    /** Client HTTP utilisé pour télécharger les images. */
+    private final HttpClient httpClient;
+
+    /**
+     * Crée un adaptateur avec un chemin de stockage explicite.
+     *
+     * @param storagePathStr chemin du dossier où stocker les images (ex: "./covers").
+     */
     public LocalCoverStorageAdapter(String storagePathStr) {
         this.storagePath = Paths.get(storagePathStr);
+
         try {
             if (!Files.exists(this.storagePath)) {
                 Files.createDirectories(this.storagePath);
             }
         } catch (IOException e) {
-            throw new RuntimeException("Impossible de créer le dossier de stockage", e);
+            throw new RuntimeException("Impossible de créer le dossier de stockage des couvertures : " + storagePathStr, e);
         }
-        this.http = HttpClient.newBuilder()
+
+        this.httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
     }
-    public LocalCoverStorageAdapter() { this("./covers"); }
+
+    /**
+     * Constructeur par défaut.
+     * Utilise le dossier "./covers" comme stockage.
+     */
+    public LocalCoverStorageAdapter() {
+        this("./covers");
+    }
+
+    // =====================================================================
+    // == Téléchargement depuis une URL ==
+    // =====================================================================
 
     @Override
     public SavedCover saveCoverFromUrl(String url, String suggestedName) throws IOException {
-        if (url == null || url.isBlank()) return null;
-        Path tempFile = null;
-        try {
-            tempFile = Files.createTempFile("cover-url-", ".tmp");
-            HttpRequest req = HttpRequest.newBuilder(URI.create(url)).GET().build();
-            HttpResponse<Path> res = http.send(req, HttpResponse.BodyHandlers.ofFile(tempFile));
+        if (url == null || url.isBlank()) {
+            return null;
+        }
 
-            if (res.statusCode() != 200) {
-                System.err.println("DL Image échec (status: " + res.statusCode() + ") URL: " + url);
-                Files.deleteIfExists(tempFile); // Nettoyage
+        Path tempFile = null;
+
+        try {
+            // 1. Crée un fichier temporaire
+            tempFile = Files.createTempFile("cover-url-", ".tmp");
+
+            // 2. Prépare et envoie la requête HTTP
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .GET()
+                    .build();
+
+            HttpResponse<Path> response = httpClient.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofFile(tempFile)
+            );
+
+            // 3. Si le statut n'est pas 200, on abandonne
+            if (response.statusCode() != 200) {
+                System.err.println("Échec du téléchargement de la couverture (status: "
+                        + response.statusCode() + ") URL: " + url);
+                if (tempFile != null) {
+                    Files.deleteIfExists(tempFile);
+                }
                 return null;
             }
-            // Utilise la méthode commune pour finaliser la sauvegarde
+
+            // 4. Finalise la sauvegarde dans le dossier définitif
             return finalizeSave(tempFile, suggestedName);
 
         } catch (Exception e) {
-            Files.deleteIfExists(tempFile); // Nettoyage
-            System.err.println("Erreur téléchargement URL " + url + ": " + e.getMessage());
-            throw new IOException("Erreur téléchargement: " + e.getMessage(), e);
+            if (tempFile != null) {
+                Files.deleteIfExists(tempFile);
+            }
+            System.err.println("Erreur lors du téléchargement URL " + url + " : " + e.getMessage());
+            throw new IOException("Erreur de téléchargement de la couverture", e);
         }
     }
 
-    /** NOUVELLE MÉTHODE */
+    // =====================================================================
+    // == Copie depuis un fichier local ==
+    // =====================================================================
+
     @Override
     public SavedCover saveCoverFromLocalFile(Path sourcePath, String suggestedName) throws IOException {
         if (sourcePath == null || !Files.exists(sourcePath) || !Files.isReadable(sourcePath)) {
-             throw new IOException("Fichier source invalide ou illisible: " + sourcePath);
+            throw new IOException("Fichier source invalide ou illisible : " + sourcePath);
         }
+
         Path tempFile = null;
+
         try {
-            // Crée un fichier temporaire pour standardiser le process
-             tempFile = Files.createTempFile("cover-local-", ".tmp");
-             // Copie le fichier source vers le temporaire
-             Files.copy(sourcePath, tempFile, StandardCopyOption.REPLACE_EXISTING);
-             // Utilise la méthode commune pour finaliser
-             return finalizeSave(tempFile, suggestedName);
+            // 1. Crée un fichier temporaire
+            tempFile = Files.createTempFile("cover-local-", ".tmp");
+
+            // 2. Copie la source vers le temporaire
+            Files.copy(sourcePath, tempFile, StandardCopyOption.REPLACE_EXISTING);
+
+            // 3. Finalise la sauvegarde dans le dossier définitif
+            return finalizeSave(tempFile, suggestedName);
 
         } catch (IOException e) {
-             Files.deleteIfExists(tempFile); // Nettoyage
-             System.err.println("Erreur copie fichier local " + sourcePath + ": " + e.getMessage());
-             throw e; // Relance l'exception
+            if (tempFile != null) {
+                Files.deleteIfExists(tempFile);
+            }
+            System.err.println("Erreur lors de la copie de la couverture locale " + sourcePath + " : " + e.getMessage());
+            throw e;
         }
     }
 
+    // =====================================================================
+    // == Méthode commune de finalisation ==
+    // =====================================================================
+
     /**
-     * Méthode privée commune pour déterminer le nom final, déplacer
-     * le fichier temporaire et créer l'objet SavedCover.
+     * Détermine le type et le nom de fichier final, déplace le fichier temporaire
+     * vers le dossier de stockage, et construit un {@link SavedCover}.
+     *
+     * @param tempFile      fichier temporaire à déplacer
+     * @param suggestedName nom suggéré (non utilisé ici mais gardé pour évolution)
+     * @return un objet SavedCover avec les métadonnées
      */
     private SavedCover finalizeSave(Path tempFile, String suggestedName) throws IOException {
-         try {
+        try {
+            // Type MIME (ex: image/jpeg, image/png, etc.)
             String mimeType = Files.probeContentType(tempFile);
             if (mimeType == null || !mimeType.startsWith("image/")) {
-                mimeType = "image/jpeg"; // Fallback
+                mimeType = "image/jpeg"; // Valeur de secours
             }
-            String extension = mimeType.equals("image/png") ? ".png" : (mimeType.equals("image/gif") ? ".gif" : ".jpg");
 
-            // Crée un nom de fichier unique basé sur UUID
+            // Choix de l’extension en fonction du type mime
+            String extension;
+            if ("image/png".equals(mimeType)) {
+                extension = ".png";
+            } else if ("image/gif".equals(mimeType)) {
+                extension = ".gif";
+            } else {
+                extension = ".jpg";
+            }
+
+            // Nom de fichier unique
             String finalName = UUID.randomUUID().toString() + extension;
-            Path finalPath = this.storagePath.resolve(finalName);
+            Path finalPath = storagePath.resolve(finalName);
 
-            // Déplace le fichier temporaire
+            // Déplacement du fichier temporaire vers le fichier final
             Files.move(tempFile, finalPath, StandardCopyOption.REPLACE_EXISTING);
 
-            String relativePath = this.storagePath.getFileName().toString() + "/" + finalName;
+            // Chemin relatif (par ex. "covers/abc123.jpg")
+            String relativePath = storagePath.getFileName().toString() + "/" + finalName;
 
-            // Retourne les métadonnées
+            // Création de l’objet SavedCover
             return new SavedCover(
-                finalName,
-                relativePath,
-                mimeType,
-                Files.size(finalPath),
-                Instant.now().toEpochMilli()
+                    finalName,
+                    relativePath,
+                    mimeType,
+                    Files.size(finalPath),
+                    Instant.now().toEpochMilli()
             );
-        } catch (IOException e) {
-            Files.deleteIfExists(tempFile); // Assure le nettoyage même ici
-            throw e; // Relance pour que l'appelant sache qu'il y a eu un problème
         } finally {
-             // S'assure que le fichier temp est supprimé s'il existe encore (au cas où move échoue différemment)
-             Files.deleteIfExists(tempFile);
+            // Nettoyage du fichier temporaire s’il existe encore
+            if (tempFile != null) {
+                Files.deleteIfExists(tempFile);
+            }
         }
     }
 }
-

@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  *   - régler une pénalité
  *   - régler toutes les pénalités d’un adhérent
  */
-public class PenalitesViewModel {
+public final class PenalitesViewModel {
 
     // --- Repositories & Services ---
     private final PenaliteRepository penaliteRepository;
@@ -39,7 +39,7 @@ public class PenalitesViewModel {
 
     // --- État UI global ---
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
-    private final StringProperty error = new SimpleStringProperty("");
+    private final StringProperty error   = new SimpleStringProperty("");
     private final StringProperty success = new SimpleStringProperty("");
 
     /**
@@ -65,15 +65,22 @@ public class PenalitesViewModel {
             new SimpleObjectProperty<>();
 
     // Cache interne des pénalités actives (date_fin IS NULL)
-    private List<Penalite> allActivePenalties;
+    private List<Penalite> allActivePenalties = List.of();
 
     // --- Constructeur ---
     public PenalitesViewModel(PenaliteRepository penaliteRepository,
                               EmpruntRepository empruntRepository,
                               PenaliteService penaliteService) {
-        this.penaliteRepository = Objects.requireNonNull(penaliteRepository);
-        this.empruntRepository = Objects.requireNonNull(empruntRepository);
-        this.penaliteService = Objects.requireNonNull(penaliteService);
+
+        this.penaliteRepository = Objects.requireNonNull(
+                penaliteRepository, "penaliteRepository ne peut pas être null"
+        );
+        this.empruntRepository = Objects.requireNonNull(
+                empruntRepository, "empruntRepository ne peut pas être null"
+        );
+        this.penaliteService = Objects.requireNonNull(
+                penaliteService, "penaliteService ne peut pas être null"
+        );
 
         // Quand on change d’adhérent sélectionné, on recharge les détails
         selectedSummary.addListener((obs, oldVal, newVal) -> {
@@ -99,7 +106,8 @@ public class PenalitesViewModel {
     public void refresh() {
         runSafely(() -> {
             // 1. Récupère TOUTES les pénalités actives (date_fin IS NULL)
-            allActivePenalties = penaliteRepository.findAllActives();
+            List<Penalite> actives = penaliteRepository.findAllActives();
+            allActivePenalties = (actives != null) ? actives : List.of();
 
             // 2. Récupère tous les emprunts pour attacher les détails (doc + adhérent)
             Map<Long, Emprunt> empruntMap = empruntRepository.findAll().stream()
@@ -164,7 +172,13 @@ public class PenalitesViewModel {
      * en filtrant le cache allActivePenalties.
      */
     private void loadDetailsFor(Adherent adherent) {
-        if (adherent == null || allActivePenalties == null) {
+        if (adherent == null || allActivePenalties == null || allActivePenalties.isEmpty()) {
+            details.clear();
+            return;
+        }
+
+        Long adherentId = adherent.getId();
+        if (adherentId == null) {
             details.clear();
             return;
         }
@@ -172,7 +186,7 @@ public class PenalitesViewModel {
         List<Penalite> adherentPenalties = allActivePenalties.stream()
                 .filter(p -> p.getEmprunt() != null
                         && p.getEmprunt().getEmprunteur() != null
-                        && adherent.getId().equals(p.getEmprunt().getEmprunteur().getId()))
+                        && adherentId.equals(p.getEmprunt().getEmprunteur().getId()))
                 .toList();
 
         details.setAll(adherentPenalties);
@@ -205,13 +219,15 @@ public class PenalitesViewModel {
      */
     public void reglerToutesPenalitesSelectionnees() {
         AdherentPenaliteSummary summary = selectedSummary.get();
-        if (summary == null || summary.adherent() == null) {
+        if (summary == null || summary.adherent() == null || summary.adherent().getId() == null) {
             setError("Aucun adhérent sélectionné.");
             return;
         }
 
+        long adherentId = summary.adherent().getId();
+
         runSafely(() -> {
-            int count = penaliteService.reglerToutesPenalites(summary.adherent().getId());
+            int count = penaliteService.reglerToutesPenalites(adherentId);
             Platform.runLater(() -> {
                 setSuccess(count + " pénalité(s) réglée(s) pour "
                         + summary.adherent().getNomComplet() + ".");
@@ -226,15 +242,13 @@ public class PenalitesViewModel {
 
     /**
      * True si la pénalité est dans un état "demande de paiement".
-     * On traite PAYMENT_REQUESTED, et éventuellement DEMANDE si tu l’utilises.
      */
     private static boolean isPaymentRequested(Penalite p) {
         if (p == null || p.getStatus() == null) {
             return false;
         }
         PenaliteStatus st = p.getStatus();
-        return st == PenaliteStatus.PAYMENT_REQUESTED
-                || st == PenaliteStatus.DEMANDE;
+        return st == PenaliteStatus.PAYMENT_REQUESTED;
     }
 
     private void runSafely(Runnable op) {

@@ -5,33 +5,46 @@ import application.domain.core.emprunt.Penalite;
 import java.util.List;
 
 /**
- * Interface (Port) pour le service de gestion des pénalités.
+ * <p>Service métier dédié à la gestion des pénalités :</p>
+ * <ul>
+ *     <li>régler une pénalité,</li>
+ *     <li>régler toutes les pénalités d’un adhérent,</li>
+ *     <li>demander un paiement (workflow adhérent),</li>
+ *     <li>consulter les pénalités actives d’un adhérent.</li>
+ * </ul>
+ *
+ * <p>Comme toujours dans le domaine, aucune dépendance technique
+ * (BD, UI, framework).</p>
  */
 public interface PenaliteService {
 
     /**
-     * Marque une pénalité spécifique comme étant payée (en définissant sa date_fin).
-     * @param penaliteId L'ID de la pénalité à régler.
-     * @return La pénalité mise à jour.
-     * @throws RuntimeException si la pénalité n'est pas trouvée ou est déjà payée.
+     * Marque une pénalité comme payée.
+     *
+     * @param penaliteId id de la pénalité
+     * @return la pénalité mise à jour
+     * @throws RuntimeException si introuvable, annulée ou déjà payée (selon logique métier)
      */
     Penalite reglerPenalite(long penaliteId);
 
     /**
-     * Marque toutes les pénalités actives d'un adhérent comme payées.
-     * @param adherentId L'ID de l'adhérent.
-     * @return Le nombre de pénalités réglées.
+     * Règle toutes les pénalités actives d’un adhérent.
+     *
+     * @param adherentId id de l’adhérent
+     * @return nombre de pénalités mises à jour
      */
     int reglerToutesPenalites(long adherentId);
 
     /**
-     * L’adhérent signale qu’il souhaite régler la pénalité
-     * (workflow : passage en "demande de paiement" ou équivalent).
+     * L’adhérent signale qu'il souhaite payer une pénalité.
+     * Cela change le statut métier (ex: PAYMENT_REQUESTED).
+     *
+     * @param penaliteId id de la pénalité
      */
     void demanderPaiement(long penaliteId);
 
     /**
-     * Retourne les pénalités (par ex. actives) pour un adhérent donné.
+     * Récupère les pénalités visibles dans l’espace adhérent.
      */
     List<Penalite> getPenalitesPourAdherent(long adherentId);
 }

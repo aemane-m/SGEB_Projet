@@ -1,30 +1,38 @@
 package application.domain.ports.storage;
 
 import java.io.IOException;
-import java.nio.file.Path; // Ajouté
+import java.nio.file.Path;
 
 /**
- * Port (interface) pour la sauvegarde physique des fichiers de couverture.
+ * Contrat pour gérer le stockage physique des images (Disque Dur, Cloud...).
+ * <p>
+ * Ce port est spécialisé dans l'importation d'images depuis l'extérieur
+ * (Internet ou un fichier local de l'ordinateur de l'utilisateur) vers notre bibliothèque.
+ * </p>
  */
 public interface CoverStoragePort {
 
     /**
-     * Télécharge une image depuis une URL et la sauvegarde.
-     * @param url URL de l'image source.
-     * @param suggestedName Nom suggéré (ex: ISBN), peut être null.
-     * @return Métadonnées du fichier sauvegardé, ou null si échec.
-     * @throws IOException Si une erreur réseau ou disque survient.
+     * Télécharge une image depuis Internet et la sauvegarde dans la bibliothèque.
+     *
+     * @param url L'adresse web de l'image (ex: "https://amazon.com/img.jpg").
+     * @param nomSuggere Le nom qu'on aimerait donner au fichier (souvent l'ISBN).
+     * @return Les infos du fichier sauvegardé (DTO).
+     * @throws IOException Si ça rate (pas d'internet, disque plein...).
      */
-    SavedCover saveCoverFromUrl(String url, String suggestedName) throws IOException;
+    SavedCover saveCoverFromUrl(String url, String nomSuggere) throws IOException;
 
     /**
-     * Copie un fichier image local vers le stockage.
-     * @param sourcePath Chemin absolu du fichier source local.
-     * @param suggestedName Nom suggéré (ex: ISBN), peut être null.
-     * @return Métadonnées du fichier sauvegardé, ou null si échec.
-     * @throws IOException Si une erreur de lecture/écriture survient.
+     * Copie une image depuis l'ordinateur de l'utilisateur vers la bibliothèque.
+     *
+     * @param fichierSource Le chemin du fichier original (ex: "C:/Users/Moi/Desktop/image.png").
+     * @param nomSuggere Le nom qu'on aimerait donner au fichier.
+     * @return Les infos du fichier sauvegardé (DTO).
+     * @throws IOException Si ça rate (fichier introuvable, disque plein...).
      */
-    SavedCover saveCoverFromLocalFile(Path sourcePath, String suggestedName) throws IOException;
+    SavedCover saveCoverFromLocalFile(Path fichierSource, String nomSuggere) throws IOException;
 
+    // Note : Pour un débutant, on expose directement IOException.
+    // C'est une "Checked Exception", cela oblige celui qui appelle la méthode
+    // à mettre un bloc try/catch pour gérer les pannes de disque/réseau.
 }
-

@@ -4,34 +4,96 @@ import java.time.LocalDate;
 import java.util.Objects;
 
 /**
- * Entité domaine représentant une pénalité monétaire liée à un Emprunt.
- * Stocke les ID des relations pour éviter les N+1.
+ * Entité de domaine représentant une pénalité monétaire associée à un {@link Emprunt}.
  *
- * Invariants :
+ * <p>Une pénalité correspond à un montant dû par un adhérent (souvent à cause d’un
+ * retard) et est liée à :</p>
+ *
  * <ul>
- *   <li>montant &gt; 0</li>
- *   <li>{@code datePaiement == null} &harr; non payée</li>
+ *     <li>un emprunt ({@code empruntId})</li>
+ *     <li>un adhérent ({@code adherentId})</li>
+ * </ul>
+ *
+ * <p>
+ * Cette classe est conçue comme une entité métier :
+ * elle possède un identifiant technique {@link #id} et un petit cycle de vie
+ * (due, demandée, payée, annulée) piloté par {@link PenaliteStatus}.
+ * </p>
+ *
+ * <h3>Invariants</h3>
+ * <ul>
+ *     <li>{@code montant} doit être strictement positif ({@link Money#isPositive()}).</li>
+ *     <li>{@code dateGeneration} est toujours non nulle.</li>
+ *     <li>{@code datePaiement == null} ⇔ pénalité non payée.</li>
+ *     <li>Si {@code datePaiement} est définie, elle ne peut pas être avant {@code dateGeneration}.</li>
+ * </ul>
+ *
+ * <h3>Statut métier</h3>
+ * <ul>
+ *     <li>{@link PenaliteStatus#DUE} : due (non payée).</li>
+ *     <li>{@link PenaliteStatus#PAYMENT_REQUESTED} : paiement demandé.</li>
+ *     <li>{@link PenaliteStatus#PAID} : payée.</li>
+ *     <li>{@link PenaliteStatus#CANCELLED} : annulée.</li>
  * </ul>
  */
 public final class Penalite {
 
+    // ======================================================================
+    // ================================= CHAMPS ==============================
+    // ======================================================================
+
+    /** Identifiant technique (généré par la base de données). */
     private Long id;
+
+    /** Montant de la pénalité (toujours strictement positif). */
     private final Money montant;
+
+    /** Date à laquelle la pénalité a été générée. */
     private final LocalDate dateGeneration;
-    private LocalDate datePaiement; // null = non payée
-
-    // --- Relations découplées ---
-    private final Long empruntId;
-    private final Long adherentId;
-
-    // Référence transiente vers l'emprunt (facultatif, pour l'UI ou certains services)
-    private transient Emprunt emprunt;
-
-    // Statut métier de la pénalité
-    private PenaliteStatus status;
 
     /**
-     * Constructeur principal pour la persistance (chargement DB).
+     * Date de paiement effectif.
+     * <p>Si null, la pénalité est considérée comme non payée.</p>
+     */
+    private LocalDate datePaiement;
+
+    // ----------------------------------------------------------------------
+    // Relations (découplées pour limiter les problèmes de N+1)
+    // ----------------------------------------------------------------------
+
+    /** Identifiant de l'emprunt concerné. */
+    private final Long empruntId;
+
+    /** Identifiant de l'adhérent débiteur. */
+    private final Long adherentId;
+
+    /**
+     * Référence transiente vers l'emprunt complet (non persistée).
+     * <p>
+     * Utilisée éventuellement par l'UI ou certains services lorsque
+     * l'objet complet est disponible.
+     * </p>
+     */
+    private transient Emprunt emprunt;
+
+    /** Statut métier de la pénalité. */
+    private PenaliteStatus status;
+
+    // ======================================================================
+    // ============================ CONSTRUCTEUR =============================
+    // ======================================================================
+
+    /**
+     * Constructeur principal utilisé pour le chargement depuis la base
+     * de données (persistance).
+     *
+     * @param id identifiant technique (peut être null pour une nouvelle pénalité)
+     * @param empruntId identifiant de l'emprunt lié
+     * @param adherentId identifiant de l'adhérent concerné
+     * @param montant montant de la pénalité (doit être &gt; 0)
+     * @param dateGeneration date de génération de la pénalité
+     * @param datePaiement date de paiement (ou null si non payée)
+     * @throws IllegalArgumentException si les invariants ne sont pas respectés
      */
     public Penalite(Long id,
                     Long empruntId,
@@ -39,6 +101,7 @@ public final class Penalite {
                     Money montant,
                     LocalDate dateGeneration,
                     LocalDate datePaiement) {
+
         this.id = id;
         this.empruntId = Objects.requireNonNull(empruntId, "empruntId");
         this.adherentId = Objects.requireNonNull(adherentId, "adherentId");
@@ -56,7 +119,7 @@ public final class Penalite {
         }
         this.datePaiement = datePaiement;
 
-        // Déduit un statut minimal cohérent avec la date de paiement
+        // Statut cohérent avec la date de paiement
         if (datePaiement == null) {
             this.status = PenaliteStatus.DUE;
         } else {
@@ -64,8 +127,24 @@ public final class Penalite {
         }
     }
 
+    // ======================================================================
+    // =============================== FACTORY ===============================
+    // ======================================================================
+
     /**
-     * Factory : crée une pénalité non payée à la date donnée (logique métier).
+     * Factory métier : crée une pénalité non payée à la date donnée
+     * pour un {@link Emprunt} donné.
+     *
+     * <p>
+     * Les identifiants d'emprunt et d'adhérent sont extraits de l'entité
+     * {@link Emprunt} pour éviter de charger des graphes d'objets trop lourds
+     * (pattern "ID reference").
+     * </p>
+     *
+     * @param emprunt emprunt en retard
+     * @param montant montant de la pénalité (strictement positif)
+     * @param dateGeneration date de génération de la pénalité
+     * @return une nouvelle instance de {@link Penalite} en statut {@link PenaliteStatus#DUE}
      */
     public static Penalite creerPour(Emprunt emprunt, Money montant, LocalDate dateGeneration) {
         Objects.requireNonNull(emprunt, "emprunt");
@@ -87,19 +166,36 @@ public final class Penalite {
         // Statut par défaut pour une nouvelle pénalité : due
         p.status = PenaliteStatus.DUE;
 
-        // Stocke l'objet source (transient) pour un accès immédiat
+        // Stocke l'objet source (transient) pour un accès immédiat éventuel
         p.setEmprunt(emprunt);
         return p;
     }
 
-    /** @return {@code true} si la pénalité est payée. */
+    // ======================================================================
+    // =============================== MÉTIER ================================
+    // ======================================================================
+
+    /**
+     * @return {@code true} si la pénalité est payée (date de paiement définie
+     *         et statut {@link PenaliteStatus#PAID}).
+     */
     public boolean estPayee() {
         return datePaiement != null && status == PenaliteStatus.PAID;
     }
 
     /**
-     * Marque la pénalité comme "paiement demandé" (par l'adhérent).
-     * Ne définit pas de date de paiement, uniquement un changement de statut.
+     * Marque la pénalité comme "paiement demandé" (par l'adhérent par exemple).
+     *
+     * <p>
+     * Cette méthode ne fixe pas de date de paiement : elle change uniquement
+     * le {@link #status}. Si la pénalité est déjà payée ou annulée, un appel
+     * déclenche une exception.
+     * </p>
+     *
+     * <p>La méthode est idempotente : si le statut est déjà
+     * {@link PenaliteStatus#PAYMENT_REQUESTED}, elle ne fait rien.</p>
+     *
+     * @throws IllegalStateException si la pénalité est déjà payée ou annulée
      */
     public void demanderPaiement() {
         if (status == PenaliteStatus.PAID) {
@@ -115,7 +211,13 @@ public final class Penalite {
         this.status = PenaliteStatus.PAYMENT_REQUESTED;
     }
 
-    /** Marque la pénalité comme payée à la date fournie. */
+    /**
+     * Marque la pénalité comme payée à la date fournie.
+     *
+     * @param date date de paiement
+     * @throws IllegalArgumentException si la date est avant la date de génération
+     * @throws IllegalStateException si la pénalité est annulée
+     */
     public void marquerCommePayee(LocalDate date) {
         Objects.requireNonNull(date, "date");
         if (date.isBefore(dateGeneration)) {
@@ -128,13 +230,42 @@ public final class Penalite {
         this.status = PenaliteStatus.PAID;
     }
 
-    /** Annule la pénalité (quel que soit son état précédent). */
+    /**
+     * Annule la pénalité, quel que soit son état précédent.
+     * <p>
+     * La date de paiement est effacée, et le statut passe à
+     * {@link PenaliteStatus#CANCELLED}.
+     * </p>
+     */
     public void annuler() {
         this.datePaiement = null;
         this.status = PenaliteStatus.CANCELLED;
     }
 
-    // --- Getters / Setters techniques ---
+    /**
+     * Permet de synchroniser le statut métier depuis la persistance, tout en
+     * évitant de casser les invariants.
+     *
+     * <p>Exemple de règle : si la pénalité possède une date de paiement, on
+     * refuse de la repasser à {@link PenaliteStatus#DUE}.</p>
+     *
+     * @param newStatus nouveau statut lu en base
+     */
+    public void overrideStatusFromPersistence(PenaliteStatus newStatus) {
+        if (newStatus == null) {
+            return;
+        }
+        // On ne casse pas les invariants : une pénalité payée en base reste payée
+        if (this.datePaiement != null && newStatus == PenaliteStatus.DUE) {
+            // Incohérent : on ignore ce cas
+            return;
+        }
+        this.status = newStatus;
+    }
+
+    // ======================================================================
+    // ============================== GETTERS ================================
+    // ======================================================================
 
     public Long getId() { return id; }
     public Money getMontant() { return montant; }
@@ -149,9 +280,35 @@ public final class Penalite {
 
     public PenaliteStatus getStatus() { return status; }
 
-    /** Définit l'identifiant technique (généré par la persistance). */
+    /**
+     * Renvoie la date de fin de la pénalité, c’est-à-dire la date de paiement.
+     *
+     * @return la date de paiement, ou {@code null} si la pénalité n'est pas payée
+     */
+    public LocalDate getDateFin() {
+        return this.datePaiement;
+    }
+
+    // ======================================================================
+    // ============================== IDENTIFIANT ============================
+    // ======================================================================
+
+    /**
+     * Définit l'identifiant technique (généré par la persistance).
+     *
+     * <p>Règles :</p>
+     * <ul>
+     *     <li>Si {@code id} est null, l’appel est ignoré.</li>
+     *     <li>L'identifiant doit être strictement positif.</li>
+     *     <li>Une fois positionné, il ne peut plus être modifié.</li>
+     * </ul>
+     *
+     * @param id identifiant à affecter
+     */
     public void setId(Long id) {
-        if (id == null) return;
+        if (id == null) {
+            return;
+        }
         if (id <= 0) {
             throw new IllegalArgumentException("L'identifiant de la pénalité doit être > 0.");
         }
@@ -161,24 +318,5 @@ public final class Penalite {
             );
         }
         this.id = id;
-    }
-
-    /**
-     * Renvoie la date de fin de la pénalité (date de paiement).
-     * @return La date de paiement ou {@code null} si non payée.
-     */
-    public LocalDate getDateFin() {
-        return this.datePaiement;
-    }
-
- // Dans Penalite
-    public void overrideStatusFromPersistence(PenaliteStatus newStatus) {
-        if (newStatus == null) return;
-        // On ne casse pas les invariants : une pénalité payée en base reste payée
-        if (this.datePaiement != null && newStatus == PenaliteStatus.DUE) {
-            // Incohérent : on ignore ce cas
-            return;
-        }
-        this.status = newStatus;
     }
 }

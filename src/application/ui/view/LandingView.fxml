@@ -34,37 +34,52 @@
 
                             <!-- Section : Pour qui ? -->
                             <VBox spacing="8">
-                                <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Pour qui ?" />
+                                <children>
+                                    <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Pour qui ?" />
 
-                                <Label maxWidth="620" styleClass="subtitle" text="• Administrateur : gère le catalogue, les adhérents, les emprunts, les retours, les retards et les pénalités, et suit l’activité via un tableau de bord riche en KPI." wrapText="true" />
-                                <Label maxWidth="620" styleClass="subtitle" text="• Adhérent : consulte le catalogue, emprunte des documents, suit ses emprunts en cours et visualise ses pénalités." wrapText="true" />
+                                    <Label maxWidth="620" styleClass="subtitle" text="• Administrateur : gère le catalogue, les adhérents, les emprunts, les retours, les retards et les pénalités, et suit l’activité via un tableau de bord riche en KPI." wrapText="true" />
+
+                                    <Label maxWidth="620" styleClass="subtitle" text="• Adhérent : consulte le catalogue, emprunte des documents, suit ses emprunts en cours et visualise ses pénalités." wrapText="true" />
+                                </children>
                             </VBox>
 
                             <!-- Section : Fonctionnalités principales -->
                             <VBox spacing="8">
-                                <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Fonctionnalités principales" />
+                                <children>
+                                    <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Fonctionnalités principales" />
 
-                                <Label maxWidth="620" styleClass="subtitle" text="• Tableau de bord : indicateurs sur les documents, emprunts, retards, pénalités et adhérents actifs." wrapText="true" />
-                                <Label maxWidth="620" styleClass="subtitle" text="• Catalogue : gestion des livres et supports, recherche par titre / auteur / genre, jaquettes locales et import par ISBN." wrapText="true" />
-                                <Label maxWidth="620" styleClass="subtitle" text="• Emprunts &amp; retards : suivi des emprunts en cours, détection automatique des retards, génération des pénalités." wrapText="true" />
-                                <Label maxWidth="620" styleClass="subtitle" text="• Comptes &amp; rôles : séparation nette ADMIN / ADHERENT, statut du compte, mot de passe à changer à la première connexion." wrapText="true" />
+                                    <Label maxWidth="620" styleClass="subtitle" text="• Tableau de bord : indicateurs sur les documents, emprunts, retards, pénalités et adhérents actifs." wrapText="true" />
+
+                                    <Label maxWidth="620" styleClass="subtitle" text="• Catalogue : gestion des livres et supports, recherche par titre / auteur / genre, jaquettes locales et import par ISBN." wrapText="true" />
+
+                                    <Label maxWidth="620" styleClass="subtitle" text="• Emprunts &amp; retards : suivi des emprunts en cours, détection automatique des retards, génération des pénalités." wrapText="true" />
+
+                                    <Label maxWidth="620" styleClass="subtitle" text="• Comptes &amp; rôles : séparation nette ADMIN / ADHERENT, statut du compte, mot de passe à changer à la première connexion." wrapText="true" />
+                                </children>
                             </VBox>
 
                             <!-- Section : Architecture & technologies -->
                             <VBox spacing="8">
-                                <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Architecture &amp; technologies" />
+                                <children>
+                                    <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Architecture &amp; technologies" />
 
-                                <Label maxWidth="620" styleClass="subtitle" text="• Architecture en couches : domaine métier, services applicatifs, ports/repositories, adaptateurs SQLite, UI JavaFX (FXML + ViewModel)." wrapText="true" />
-                                <Label maxWidth="620" styleClass="subtitle" text="• Persistance : base de données SQLite, gestion des clés étrangères, contraintes d’intégrité, requêtes typées par repository." wrapText="true" />
-                                <Label maxWidth="620" styleClass="subtitle" text="• UI : JavaFX moderne avec thèmes personnalisés, composants réutilisables, tableaux filtrables et graphiques pour le suivi d’activité." wrapText="true" />
+                                    <Label maxWidth="620" styleClass="subtitle" text="• Architecture en couches : domaine métier, services applicatifs, ports/repositories, adaptateurs SQLite, UI JavaFX (FXML + ViewModel)." wrapText="true" />
+
+                                    <Label maxWidth="620" styleClass="subtitle" text="• Persistance : base de données SQLite, gestion des clés étrangères, contraintes d’intégrité, requêtes typées par repository." wrapText="true" />
+
+                                    <Label maxWidth="620" styleClass="subtitle" text="• UI : JavaFX moderne avec thèmes personnalisés, composants réutilisables, tableaux filtrables et graphiques pour le suivi d’activité." wrapText="true" />
+                                </children>
                             </VBox>
 
                             <!-- Section : Exemple de parcours -->
                             <VBox spacing="6">
-                                <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Exemple de parcours utilisateur" />
+                                <children>
+                                    <Label style="-fx-font-weight: bold;" styleClass="section-title" text="Exemple de parcours utilisateur" />
 
-                                <Label maxWidth="620" styleClass="subtitle" text="1. L’administrateur se connecte, consulte le tableau de bord, vérifie les retards et les pénalités, puis ajoute de nouveaux ouvrages au catalogue." wrapText="true" />
-                                <Label maxWidth="620" styleClass="subtitle" text="2. L’adhérent se connecte, explore le catalogue, emprunte un document, puis suit l’état de ses emprunts et ses éventuelles pénalités dans son espace dédié." wrapText="true" />
+                                    <Label maxWidth="620" styleClass="subtitle" text="1. L’administrateur se connecte, consulte le tableau de bord, vérifie les retards et les pénalités, puis ajoute de nouveaux ouvrages au catalogue." wrapText="true" />
+
+                                    <Label maxWidth="620" styleClass="subtitle" text="2. L’adhérent se connecte, explore le catalogue, emprunte un document, puis suit l’état de ses emprunts et ses éventuelles pénalités dans son espace dédié." wrapText="true" />
+                                </children>
                             </VBox>
 
                             <!-- Boutons d’action -->
@@ -73,9 +88,9 @@
                                     <Insets bottom="0" left="0" right="0" top="18" />
                                 </padding>
                                 <children>
-                                    <Button fx:id="btnLogin" onAction="#onLoginClicked" prefWidth="150" styleClass="btn-primary" text="Se connecter" />
+                                    <Button fx:id="btnLogin" onAction="#onLoginClicked" prefHeight="37.0" prefWidth="122.0" styleClass="btn-primary" text="Se connecter" />
 
-                                    <Button fx:id="btnRegister" onAction="#onRegisterClicked" prefWidth="220" styleClass="btn-secondary" text="Créer un compte adhérent" />
+                                    <Button fx:id="btnRegister" onAction="#onRegisterClicked" prefHeight="37.0" prefWidth="184.0" styleClass="btn-danger" text="Créer un compte adhérent" />
                                 </children>
                             </HBox>
                         </VBox>

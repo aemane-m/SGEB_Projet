@@ -13,19 +13,19 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Implémentation SQLite de {@link DocumentRepository} pour la table TPH {@code DOCUMENT}.
+ * Implémentation SQLite de {@link DocumentRepository} pour la table {@code DOCUMENT}.
  *
- * <h2>Mapping TPH</h2>
+ * <h2>Mapping TPH (Table per Hierarchy)</h2>
  * <ul>
- * <li>{@code DOCUMENT.dtype} : "Livre" / "Magazine" / "CD"</li>
- * <li>Champs communs : {@code titre}, {@code annee_publication}, {@code editeur}, {@code genre}</li>
- * <li>Livre : {@code auteur}, {@code isbn}, {@code nombre_pages}</li>
- * <li>Magazine : {@code numero}, {@code periodicite}, {@code date_parution}</li>
- * <li>CD : {@code artiste}, {@code duree_minutes}</li>
- * <li>Cover : {@code cover_path}, {@code cover_mime}, {@code cover_updated_at}</li>
+ *     <li>{@code dtype} : "Livre", "Magazine" ou "CD"</li>
+ *     <li>Champs communs : {@code titre}, {@code annee_publication}, {@code editeur}, {@code genre}</li>
+ *     <li>Livre : {@code auteur}, {@code isbn}, {@code nombre_pages}</li>
+ *     <li>Magazine : {@code numero}, {@code periodicite}, {@code date_parution}</li>
+ *     <li>CD : {@code artiste}, {@code duree_minutes}</li>
+ *     <li>Cover : {@code cover_path}, {@code cover_mime}, {@code cover_updated_at}</li>
  * </ul>
  *
- * <p>Décision : {@code CD.label} est stocké dans la colonne commune {@code editeur}.</p>
+ * <p>Décision : pour un CD, {@code editeur} est utilisé comme label.</p>
  */
 public class SqliteDocumentRepository implements DocumentRepository {
 
@@ -33,138 +33,168 @@ public class SqliteDocumentRepository implements DocumentRepository {
     // ========== CRUD =============
     // =============================
 
-    /** {@inheritDoc} */
     @Override
-    public Document save(Document d) {
-        return (d.getId() == null) ? insert(d) : update(d);
+    public Document save(Document document) {
+        if (document == null) {
+            throw new IllegalArgumentException("document ne doit pas être null");
+        }
+        return (document.getId() == null) ? insert(document) : update(document);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Optional<Document> findById(Long id) {
-        final String sql = "SELECT * FROM DOCUMENT WHERE document_id=?";
+        final String sql = "SELECT * FROM DOCUMENT WHERE document_id = ?";
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
+
             ps.setLong(1, id);
+
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
             }
+
         } catch (SQLException e) {
-            throw new RuntimeException("DOCUMENT.findById", e);
+            throw new RuntimeException("DOCUMENT.findById a échoué", e);
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public List<Document> findAll() {
         final String sql = "SELECT * FROM DOCUMENT ORDER BY document_id";
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
-            List<Document> out = new ArrayList<>();
-            while (rs.next()) out.add(mapRow(rs));
-            return out;
+
+            List<Document> results = new ArrayList<>();
+            while (rs.next()) {
+                results.add(mapRow(rs));
+            }
+            return results;
+
         } catch (SQLException e) {
-            throw new RuntimeException("DOCUMENT.findAll", e);
+            throw new RuntimeException("DOCUMENT.findAll a échoué", e);
         }
     }
 
-    /** {@inheritDoc} – contrat générique Repository<T,ID>. */
     @Override
     public void delete(Long id) {
-        final String sql = "DELETE FROM DOCUMENT WHERE document_id=?";
+        final String sql = "DELETE FROM DOCUMENT WHERE document_id = ?";
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
+
             ps.setLong(1, id);
             ps.executeUpdate();
+
         } catch (SQLException e) {
-            // Si le document est emprunté, la contrainte FK peut échouer
-            throw new RuntimeException("DOCUMENT.delete : impossible de supprimer (peut-être emprunté?)", e);
+            // Si le document est encore emprunté, une contrainte FK peut échouer
+            throw new RuntimeException(
+                    "DOCUMENT.delete : impossible de supprimer (document peut-être emprunté ?)", e
+            );
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public long count() {
         final String sql = "SELECT COUNT(*) FROM DOCUMENT";
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
+
             return rs.next() ? rs.getLong(1) : 0L;
+
         } catch (SQLException e) {
-            throw new RuntimeException("DOCUMENT.count", e);
+            throw new RuntimeException("DOCUMENT.count a échoué", e);
         }
     }
 
     // ==========================================
-    // ========== Méthodes spécifiques ==========
+    // ========== Requêtes spécifiques ==========
     // ==========================================
 
-    /** {@inheritDoc} */
     @Override
     public List<Document> findByTitre(String titre) {
-        // Utilise LIKE pour une recherche flexible, % à la fin pour utiliser l'index
-        return findByFieldLike("titre", titre + "%");
+        // Recherche "commence par"
+        String value = (titre == null) ? "" : titre;
+        return findByFieldLike("titre", value + "%", "findByTitre");
     }
 
-    /** {@inheritDoc} */
     @Override
     public List<Document> findByAuteur(String auteur) {
-        // Utilise LIKE pour une recherche flexible
-        return findByFieldLike("auteur", "%" + auteur + "%");
+        // Recherche "contient"
+        String value = (auteur == null) ? "" : auteur;
+        return findByFieldLike("auteur", "%" + value + "%", "findByAuteur");
     }
 
-    /** {@inheritDoc} */
     @Override
     public List<Document> findByGenre(String genre) {
-        // Correspondance exacte, utilise l'index
-        return findByFieldExact("genre", genre);
+        String value = (genre == null) ? "" : genre;
+        return findByFieldExact("genre", value, "findByGenre");
     }
 
-    /**
-     * {@inheritDoc}
-     * <p>Implémentation de l'exigence : "Rechercher un document par [...] ISBN."</p>
-     */
     @Override
     public Optional<Document> findByIsbn(String isbn) {
-        // Correspondance exacte, utilise l'index
-        List<Document> result = findByFieldExact("isbn", isbn);
-        return result.isEmpty() ? Optional.empty() : Optional.of(result.get(0));
+        String value = (isbn == null) ? "" : isbn;
+        List<Document> results = findByFieldExact("isbn", value, "findByIsbn");
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
-
-    private List<Document> findByFieldLike(String col, String value) {
-        // CORRIGÉ : Utilise LIKE (insensible à la casse) qui peut utiliser l'index
-        final String sql = "SELECT * FROM DOCUMENT WHERE " + col + " LIKE ? ORDER BY document_id";
-        return executeFindQuery(sql, value, "findByFieldLike(" + col + ")");
+    @Override
+    public Collection<? extends Document> findByTitreContaining(String query) {
+        String value = (query == null) ? "" : query;
+        return findByFieldLike("titre", "%" + value + "%", "findByTitreContaining");
     }
 
-    private List<Document> findByFieldExact(String col, String value) {
-        // CORRIGÉ : Utilise = (insensible à la casse) qui utilise l'index
-        final String sql = "SELECT * FROM DOCUMENT WHERE " + col + " = ? ORDER BY document_id";
-        return executeFindQuery(sql, value, "findByFieldExact(" + col + ")");
+    @Override
+    public Collection<? extends Document> findByAuteurContaining(String query) {
+        String value = (query == null) ? "" : query;
+        return findByFieldLike("auteur", "%" + value + "%", "findByAuteurContaining");
     }
 
-    private List<Document> executeFindQuery(String sql, String value, String errorContext) {
+    // ==========================================
+    // ========== Helpers de requête ============
+    // ==========================================
+
+    /** Recherche avec LIKE (pour les champs texte). */
+    private List<Document> findByFieldLike(String column, String value, String context) {
+        final String sql = "SELECT * FROM DOCUMENT WHERE " + column + " LIKE ? ORDER BY document_id";
+        return executeFindQuery(sql, value, context);
+    }
+
+    /** Recherche avec égalité stricte (=). */
+    private List<Document> findByFieldExact(String column, String value, String context) {
+        final String sql = "SELECT * FROM DOCUMENT WHERE " + column + " = ? ORDER BY document_id";
+        return executeFindQuery(sql, value, context);
+    }
+
+    /** Exécute une requête SELECT simple avec un seul paramètre. */
+    private List<Document> executeFindQuery(String sql, String value, String context) {
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
+
             ps.setString(1, value);
             try (ResultSet rs = ps.executeQuery()) {
-                List<Document> out = new ArrayList<>();
-                while (rs.next()) out.add(mapRow(rs));
-                return out;
+                List<Document> results = new ArrayList<>();
+                while (rs.next()) {
+                    results.add(mapRow(rs));
+                }
+                return results;
             }
+
         } catch (SQLException e) {
-            throw new RuntimeException("DOCUMENT." + errorContext, e);
+            throw new RuntimeException("DOCUMENT." + context + " a échoué", e);
         }
     }
 
-
     // =============================
-    // ========== SQL IO ===========
+    // ========== SQL I/O ==========
     // =============================
 
-    private Document insert(Document d) {
+    /** Insère un nouveau document. */
+    private Document insert(Document document) {
         final String sql = """
             INSERT INTO DOCUMENT(
               dtype, titre, annee_publication, editeur, genre,
@@ -174,20 +204,27 @@ public class SqliteDocumentRepository implements DocumentRepository {
               cover_url, cover_path, cover_mime, cover_updated_at
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """;
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            bindAll(ps, d);
+
+            bindAll(ps, document);
             ps.executeUpdate();
-            try (ResultSet k = ps.getGeneratedKeys()) {
-                if (k.next()) d.setId(k.getLong(1));
+
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    document.setId(keys.getLong(1));
+                }
             }
-            return d;
+            return document;
+
         } catch (SQLException e) {
-            throw new RuntimeException("DOCUMENT.insert", e);
+            throw new RuntimeException("DOCUMENT.insert a échoué", e);
         }
     }
 
-    private Document update(Document d) {
+    /** Met à jour un document existant. */
+    private Document update(Document document) {
         final String sql = """
             UPDATE DOCUMENT SET
               dtype=?, titre=?, annee_publication=?, editeur=?, genre=?,
@@ -195,59 +232,67 @@ public class SqliteDocumentRepository implements DocumentRepository {
               numero=?, periodicite=?, date_parution=?,
               artiste=?, duree_minutes=?,
               cover_url=?, cover_path=?, cover_mime=?, cover_updated_at=?
-            WHERE document_id=?
+            WHERE document_id = ?
         """;
+
         try (Connection c = SqliteDataSource.getConnection();
              PreparedStatement ps = c.prepareStatement(sql)) {
-            int idx = bindAll(ps, d);
-            ps.setLong(idx, d.getId());
+
+            int idx = bindAll(ps, document);
+            ps.setLong(idx, document.getId());
             ps.executeUpdate();
-            return d;
+            return document;
+
         } catch (SQLException e) {
-            throw new RuntimeException("DOCUMENT.update", e);
+            throw new RuntimeException("DOCUMENT.update a échoué", e);
         }
     }
 
-    /** Renseigne tous les paramètres SQL pour un {@link Document}. */
+    /**
+     * Renseigne tous les paramètres SQL communs + spécifiques en fonction du type de document.
+     *
+     * @return l'index du prochain paramètre libre (utilisé pour document_id dans l'UPDATE).
+     */
     private int bindAll(PreparedStatement ps, Document d) throws SQLException {
         int i = 1;
+
+        // Champs communs
         ps.setString(i++, d.getDtype());
         ps.setString(i++, d.getTitre());
         ps.setObject(i++, d.getAnneePublication(), Types.INTEGER);
-        ps.setString(i++, d.getEditeur()); // pour CD : editeur == label
+        ps.setString(i++, d.getEditeur()); // Pour CD : editeur = label
         ps.setString(i++, d.getGenre());
 
+        // Champs spécifiques selon le type
         if (d instanceof Livre l) {
-            // CORRIGÉ : Gère 'auteur'
             ps.setString(i++, l.getAuteur());
             ps.setString(i++, l.getIsbn());
             ps.setObject(i++, l.getNbPages(), Types.INTEGER);
-            ps.setNull(i++, Types.INTEGER);    // numero
-            ps.setNull(i++, Types.VARCHAR);   // periodicite
-            ps.setNull(i++, Types.VARCHAR);   // date_parution
-            ps.setNull(i++, Types.VARCHAR);   // artiste
-            ps.setNull(i++, Types.INTEGER);   // duree_minutes
+            ps.setNull(i++, Types.INTEGER); // numero
+            ps.setNull(i++, Types.VARCHAR); // periodicite
+            ps.setNull(i++, Types.VARCHAR); // date_parution
+            ps.setNull(i++, Types.VARCHAR); // artiste
+            ps.setNull(i++, Types.INTEGER); // duree_minutes
         } else if (d instanceof Magazine m) {
-            ps.setNull(i++, Types.VARCHAR);   // auteur
-            ps.setNull(i++, Types.VARCHAR);   // isbn
-            ps.setNull(i++, Types.INTEGER);   // nombre_pages
+            ps.setNull(i++, Types.VARCHAR); // auteur
+            ps.setNull(i++, Types.VARCHAR); // isbn
+            ps.setNull(i++, Types.INTEGER); // nombre_pages
             ps.setObject(i++, m.getNumero(), Types.INTEGER);
-            // CORRIGÉ : Gère 'periodicite'
             ps.setString(i++, m.getPeriodicite());
-            ps.setString(i++, m.getMoisParution()); // date_parution
-            ps.setNull(i++, Types.VARCHAR);   // artiste
-            ps.setNull(i++, Types.INTEGER);   // duree_minutes
+            ps.setString(i++, m.getMoisParution());
+            ps.setNull(i++, Types.VARCHAR); // artiste
+            ps.setNull(i++, Types.INTEGER); // duree_minutes
         } else if (d instanceof CD cd) {
-            ps.setNull(i++, Types.VARCHAR);   // auteur
-            ps.setNull(i++, Types.VARCHAR);   // isbn
-            ps.setNull(i++, Types.INTEGER);   // nombre_pages
-            ps.setNull(i++, Types.INTEGER);   // numero
-            ps.setNull(i++, Types.VARCHAR);   // periodicite
-            ps.setNull(i++, Types.VARCHAR);   // date_parution
-            ps.setString(i++, cd.getArtistePrincipal()); // artiste
-            ps.setObject(i++, cd.getDureeMinutes(), Types.INTEGER); // duree_minutes
+            ps.setNull(i++, Types.VARCHAR); // auteur
+            ps.setNull(i++, Types.VARCHAR); // isbn
+            ps.setNull(i++, Types.INTEGER); // nombre_pages
+            ps.setNull(i++, Types.INTEGER); // numero
+            ps.setNull(i++, Types.VARCHAR); // periodicite
+            ps.setNull(i++, Types.VARCHAR); // date_parution
+            ps.setString(i++, cd.getArtistePrincipal());
+            ps.setObject(i++, cd.getDureeMinutes(), Types.INTEGER);
         } else {
-            // Document générique (ne devrait pas arriver si dtype est géré)
+            // Cas "Document générique" (normalement non utilisé)
             ps.setNull(i++, Types.VARCHAR);
             ps.setNull(i++, Types.VARCHAR);
             ps.setNull(i++, Types.INTEGER);
@@ -258,17 +303,23 @@ public class SqliteDocumentRepository implements DocumentRepository {
             ps.setNull(i++, Types.INTEGER);
         }
 
-        ps.setString(i++, null); // cover_url (non utilisée)
-        ps.setString(i++, d.getCoverRef()); // cover_path
+        // Champs cover
+        ps.setString(i++, null); // cover_url (non utilisé pour l'instant)
+        ps.setString(i++, d.getCoverRef());
         ps.setString(i++, d.getCoverMime());
         ps.setString(i++, d.getCoverUpdatedAt() == null ? null : String.valueOf(d.getCoverUpdatedAt()));
+
         return i;
     }
 
-    /** Convertit une ligne SQL en entité {@link Document} spécialisée. */
+    // =============================
+    // ===== Mapping résultat ======
+    // =============================
+
+    /** Convertit une ligne de la table DOCUMENT en objet Document spécialisé. */
     private Document mapRow(ResultSet rs) throws SQLException {
-        // --- 1. Champs Communs
-        final String dtype = rs.getString("dtype");
+        // Champs communs
+        String dtype = rs.getString("dtype");
         Long id = rs.getLong("document_id");
         String titre = rs.getString("titre");
         Integer annee = (Integer) rs.getObject("annee_publication");
@@ -278,56 +329,59 @@ public class SqliteDocumentRepository implements DocumentRepository {
         String coverMime = rs.getString("cover_mime");
         Long coverUpdated = readLongTolerant(rs, "cover_updated_at");
 
-        // --- 2. Champs Spécifiques
+        // Spécifiques selon le type
         if ("Magazine".equalsIgnoreCase(dtype)) {
             Integer numero = (Integer) rs.getObject("numero");
             String moisParution = rs.getString("date_parution");
-            // CORRIGÉ : Lecture de 'periodicite'
             String periodicite = rs.getString("periodicite");
-            return new Magazine(id, titre, annee, editeur, genre,
-                coverRef, coverMime, coverUpdated, numero, moisParution, periodicite);
-        } else if ("CD".equalsIgnoreCase(dtype)) {
-            return new CD(id, titre, annee, editeur, genre,
-                coverRef, coverMime, coverUpdated,
-                (Integer) rs.getObject("duree_minutes"),
-                rs.getString("artiste"),
-                editeur /* label = editeur */);
-        } else {
-            // CORRIGÉ : Lecture de 'auteur'
-            String auteur = rs.getString("auteur");
-            String isbn = rs.getString("isbn");
-            Integer nbPages = (Integer) rs.getObject("nombre_pages");
-            return new Livre(id, titre, annee, editeur, genre,
-                coverRef, coverMime, coverUpdated,
-                auteur, isbn, nbPages);
+
+            return new Magazine(
+                    id, titre, annee, editeur, genre,
+                    coverRef, coverMime, coverUpdated,
+                    numero, moisParution, periodicite
+            );
         }
+
+        if ("CD".equalsIgnoreCase(dtype)) {
+            Integer dureeMinutes = (Integer) rs.getObject("duree_minutes");
+            String artiste = rs.getString("artiste");
+
+            return new CD(
+                    id, titre, annee, editeur, genre,
+                    coverRef, coverMime, coverUpdated,
+                    dureeMinutes, artiste,
+                    editeur // label = editeur
+            );
+        }
+
+        // Par défaut, on suppose un Livre
+        String auteur = rs.getString("auteur");
+        String isbn = rs.getString("isbn");
+        Integer nbPages = (Integer) rs.getObject("nombre_pages");
+
+        return new Livre(
+                id, titre, annee, editeur, genre,
+                coverRef, coverMime, coverUpdated,
+                auteur, isbn, nbPages
+        );
     }
 
-    /** Lecture tolérante d'un Long stocké en TEXT ou en INTEGER. */
+    /** Lecture tolérante d'un Long (stocké en INTEGER ou TEXT). */
     private static Long readLongTolerant(ResultSet rs, String column) throws SQLException {
-        Object o = rs.getObject(column);
-        if (o == null) return null;
-        if (o instanceof Number n) return n.longValue();
-        if (o instanceof String s) {
+        Object value = rs.getObject(column);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number n) {
+            return n.longValue();
+        }
+        if (value instanceof String s) {
             try {
                 return s.isBlank() ? null : Long.parseLong(s.trim());
-            } catch (NumberFormatException ignore) {
+            } catch (NumberFormatException ignored) {
                 return null;
             }
         }
         return null;
-    }
-
-    @Override
-    public Collection<? extends Document> findByTitreContaining(String query) {
-        // Utilise LIKE pour une recherche "contient"
-        // (votre méthode findByTitre utilisait "commence par")
-        return findByFieldLike("titre", "%" + query + "%");
-    }
-
-    @Override
-    public Collection<? extends Document> findByAuteurContaining(String query) {
-        // Cette méthode est fonctionnellement identique à votre findByAuteur existante
-        return findByFieldLike("auteur", "%" + query + "%");
     }
 }

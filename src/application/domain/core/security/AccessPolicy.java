@@ -3,24 +3,37 @@ package application.domain.core.security;
 import java.util.Objects;
 
 /**
- * <p><strong>AccessPolicy</strong> centralise les règles d'autorisation
- * basées sur un {@link Role} et ses {@link Capability}.</p>
+ * <p>
+ * <strong>AccessPolicy</strong> centralise les règles d'autorisation
+ * basées sur un {@link Role} et ses {@link Capability}.
+ * </p>
  *
- * <p>Répond à la question :
- * <em>"l'utilisateur a-t-il le droit d'effectuer cette action ?"</em></p>
+ * <p>
+ * Elle répond à la question :
+ * <em>« Cet utilisateur a-t-il le droit d’effectuer cette action ? »</em>
+ * </p>
+ *
+ * <p>
+ * Classe utilitaire purement métier : aucun accès BD / réseau.
+ * </p>
  */
 public final class AccessPolicy {
 
+    /** Classe utilitaire : pas d'instanciation. */
     private AccessPolicy() {
-        // utilitaire
+        // Utilitaire statique
     }
 
-    // ===========================
-    // === Méthodes génériques ===
-    // ===========================
+    // ======================================================================
+    // =========================== MÉTHODES GÉNÉRIQUES =======================
+    // ======================================================================
 
     /**
      * Vérifie si un rôle possède la capability donnée.
+     *
+     * @param role       rôle à vérifier (non null)
+     * @param capability capability requise (non null)
+     * @return {@code true} si le rôle possède cette capability
      */
     public static boolean isAllowed(Role role, Capability capability) {
         Objects.requireNonNull(role, "role");
@@ -29,39 +42,54 @@ public final class AccessPolicy {
     }
 
     /**
-     * Variante qui lève une exception en cas d'accès interdit.
+     * Vérifie qu’un rôle possède la capability donnée, sinon lève une exception.
+     *
+     * @param role       rôle à vérifier (non null)
+     * @param capability capability requise (non null)
+     * @throws AccessDeniedException si la capability est absente
      */
     public static void require(Role role, Capability capability) {
         if (!isAllowed(role, capability)) {
             throw new AccessDeniedException(
-                "Accès refusé : capability requise = " + capability.name() +
-                ", role = " + role.getNom()
+                    "Accès refusé : capability requise = " + capability.name() +
+                    ", rôle = " + role.getName()
             );
         }
     }
 
-    // ===============================
-    // === Raccourcis sémantiques ===
-    // ===============================
+    // ======================================================================
+    // ======================== RACCOURCIS SÉMANTIQUES ======================
+    // ======================================================================
 
-    /** Peut gérer les adhérents ? */
+    /**
+     * Peut gérer les adhérents ?
+     *
+     * @param role rôle à tester
+     */
     public static boolean canManageAdherents(Role role) {
         return isAllowed(role, Capability.MANAGE_ADHERENTS);
     }
 
-    /** Peut gérer les documents (catalogue) ? */
+    /**
+     * Peut gérer le catalogue de documents ?
+     *
+     * <p>
+     * On autorise l'une ou l'autre capability pour être souple côté
+     * libellés UI :
+     * {@link Capability#MANAGE_DOCUMENTS} ou {@link Capability#MANAGE_CATALOGUE}.
+     * </p>
+     */
     public static boolean canManageDocuments(Role role) {
-        // On autorise l'un ou l'autre pour être souple
         return isAllowed(role, Capability.MANAGE_DOCUMENTS)
                 || isAllowed(role, Capability.MANAGE_CATALOGUE);
     }
 
-    /** Peut gérer/superviser les emprunts ? */
+    /** Peut gérer / superviser les emprunts ? */
     public static boolean canManageEmprunts(Role role) {
         return isAllowed(role, Capability.MANAGE_EMPRUNTS);
     }
 
-    /** Peut gérer/superviser les pénalités ? */
+    /** Peut gérer / superviser les pénalités ? */
     public static boolean canManagePenalites(Role role) {
         return isAllowed(role, Capability.MANAGE_PENALITES);
     }
@@ -71,7 +99,7 @@ public final class AccessPolicy {
         return isAllowed(role, Capability.VIEW_STATS);
     }
 
-    /** Peut consulter le catalogue (vue adhérent/admin) ? */
+    /** Peut consulter le catalogue (vue adhérent ou admin) ? */
     public static boolean canConsultCatalog(Role role) {
         return isAllowed(role, Capability.CONSULT_CATALOG);
     }
@@ -101,12 +129,12 @@ public final class AccessPolicy {
         return isAllowed(role, Capability.VIEW_SELF_PENALTIES);
     }
 
-    // ===========================
-    // === Exception dédiée   ====
-    // ===========================
+    // ======================================================================
+    // ======================= EXCEPTION DÉDIÉE =============================
+    // ======================================================================
 
     /**
-     * Exception lancée lorsqu'une autorisation est manquante.
+     * Exception lancée lorsqu’une autorisation est manquante.
      */
     public static class AccessDeniedException extends RuntimeException {
 
@@ -120,5 +148,4 @@ public final class AccessPolicy {
             super(message, cause);
         }
     }
-
 }

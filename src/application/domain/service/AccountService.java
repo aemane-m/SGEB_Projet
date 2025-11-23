@@ -8,69 +8,113 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Service domaine pour la gestion des comptes (Admin + Adhérent).
- * Ne dépend d’aucune technologie (JavaFX, SQLite, UI).
+ * Service de domaine pour la gestion des comptes utilisateur (Administrateur + Adhérent).
  *
- * Le domaine fournit :
- * - création de comptes (setup, admin, adhérent)
- * - login authentifié
- * - informations de session (role + capabilities)
- * - état du compte : ACTIVE, PENDING, SUSPENDED
- * - flag passwordMustChange
+ * <p>Ce service ne dépend d'aucune technologie (pas de JavaFX, pas de SQLite, pas d'API HTTP).
+ * Il définit seulement la logique métier attendue pour :</p>
+ *
+ * <ul>
+ *     <li>Créer des comptes (premier admin, autres admins, adhérents)</li>
+ *     <li>Authentifier un utilisateur (login)</li>
+ *     <li>Gérer les mots de passe (réinitialisation, obligation de changement)</li>
+ *     <li>Consulter et modifier l’état des comptes (actif, suspendu, etc.)</li>
+ * </ul>
  */
 public interface AccountService {
 
-    // =============================
-    // ====== Création comptes =====
-    // =============================
-
-    /** Création du tout premier Administrateur. Utilisé par le Setup Wizard. */
-    void createFirstAdmin(String email, String rawPassword, String nom, String prenom);
-
-    /** Création d’un administrateur par un admin existant. */
-    void createAdmin(String email, String rawPassword, String nom, String prenom);
-
-    /** Création d’un adhérent par inscription publique. */
-    void createAdherentPublic(String email, String rawPassword, String nom, String prenom);
-
-    /** Retourne le nombre total de comptes en base. */
-    long countUsers();
-    
-    boolean hasAnyAdmin();
-
-
-    // =============================
-    // ========== Login ============
-    // =============================
+    // ======================================================================
+    // ======================== CRÉATION DE COMPTES ==========================
+    // ======================================================================
 
     /**
-     * Authentifie un utilisateur (admin ou adhérent).
+     * Crée le tout premier administrateur du système.
      *
-     * @return LoginResult contenant :
-     *         - succès/échec
-     *         - message éventuel
-     *         - UserSession si succès
+     * <p>Utilisé par l'assistant de configuration initiale (Setup Wizard).
+     * Si ce compte n’existe pas encore, l’application ne peut pas être administrée.</p>
+     *
+     * @param email      adresse e-mail de connexion
+     * @param rawPassword mot de passe en clair (sera hashé en implémentation)
+     * @param nom        nom de famille
+     * @param prenom     prénom
+     */
+    void createFirstAdmin(String email, String rawPassword, String nom, String prenom);
+
+    /**
+     * Crée un administrateur supplémentaire.
+     *
+     * <p>Cette méthode est appelée par un administrateur déjà connecté.</p>
+     *
+     * @param email      adresse e-mail de connexion
+     * @param rawPassword mot de passe en clair
+     * @param nom        nom de famille
+     * @param prenom     prénom
+     */
+    void createAdmin(String email, String rawPassword, String nom, String prenom);
+
+    /**
+     * Crée un compte adhérent via une inscription publique
+     * (ex. depuis un formulaire "Créer mon compte").
+     *
+     * @param email      adresse e-mail de connexion
+     * @param rawPassword mot de passe en clair
+     * @param nom        nom de famille
+     * @param prenom     prénom
+     */
+    void createAdherentPublic(String email, String rawPassword, String nom, String prenom);
+
+    /**
+     * @return nombre total de comptes (admins + adhérents).
+     */
+    long countUsers();
+
+    /**
+     * Indique si au moins un compte administrateur existe déjà.
+     *
+     * @return {@code true} s'il existe au moins un admin
+     */
+    boolean hasAnyAdmin();
+
+    // ======================================================================
+    // ============================ AUTHENTIFICATION =========================
+    // ======================================================================
+
+    /**
+     * Authentifie un utilisateur (admin ou adhérent) à partir de son e-mail
+     * et de son mot de passe.
+     *
+     * @param email      e-mail saisi
+     * @param rawPassword mot de passe saisi (en clair)
+     * @return un {@link LoginResult} contenant :
+     *         <ul>
+     *             <li>success = true/false</li>
+     *             <li>un message d'erreur éventuel</li>
+     *             <li>une {@link UserSession} si succès</li>
+     *         </ul>
      */
     LoginResult login(String email, String rawPassword);
 
-    // =============================
-    // ====== Mot de passe =========
-    // =============================
+    // ======================================================================
+    // =========================== MOTS DE PASSE =============================
+    // ======================================================================
 
     /**
-     * Change le mot de passe de l'utilisateur connecté et met le flag
-     * {@code passwordMustChange} à false (utilisé après login avec mot de passe
-     * temporaire).
+     * Change le mot de passe d’un utilisateur et remet le flag
+     * {@code passwordMustChange} à {@code false}.
+     *
+     * <p>Typiquement appelée après un premier login avec un mot de passe temporaire.</p>
+     *
+     * @param userId      identifiant du compte
+     * @param rawPassword nouveau mot de passe (en clair)
      */
     void changePasswordAndClearFlag(long userId, String rawPassword);
 
     /**
-     * Réinitialise le mot de passe d'un utilisateur (cas admin).
-     * Utilisé par l’interface d’administration :
-     * - {@code targetUserId} : id du compte cible
-     * - {@code rawPassword} : nouveau mot de passe en clair
-     * - {@code forcePasswordChange} : si true, l’utilisateur devra le changer
-     *   à sa prochaine connexion.
+     * Réinitialise le mot de passe d’un utilisateur (action d’un administrateur).
+     *
+     * @param targetUserId        identifiant du compte à modifier
+     * @param rawPassword         nouveau mot de passe (en clair)
+     * @param forcePasswordChange si {@code true}, l’utilisateur devra changer
+     *                            ce mot de passe à sa prochaine connexion
      */
     void adminResetPassword(long targetUserId,
                             String rawPassword,
@@ -78,65 +122,85 @@ public interface AccountService {
 
     /**
      * Récupère le compte associé à un adhérent donné.
-     * Dans ton modèle simplifié, {@code adherentId == personne_id} quand
-     * {@code isAdmin = 0}.
+     *
+     * <p>Dans le modèle simplifié de SGEB, l’ID adhérent et l’ID personne
+     * peuvent être liés directement (implémentation côté infra).</p>
+     *
+     * @param adherentId identifiant de l’adhérent
+     * @return un résumé de compte si trouvé, vide sinon
      */
     Optional<UserAccountSummary> findAccountByAdherentId(long adherentId);
+    
+    
+    /**
+     * Recherche un utilisateur par email et retourne une UserSession
+     * minimale pour le reset de mot de passe.
+     */
+    Optional<UserSession> findSessionForPasswordReset(String email);
 
-    // =============================
-    // ======== Gestion comptes ====
-    // =============================
+    // ======================================================================
+    // ========================= GESTION DES COMPTES =========================
+    // ======================================================================
 
     /**
-     * Résumé d’un compte (admin + adhérent) pour la gestion
-     * dans l’interface d’administration.
+     * Résumé d’un compte (admin ou adhérent) utilisé dans les écrans
+     * de gestion (interface d’administration).
      */
     record UserAccountSummary(
             long userId,
             String email,
             String roleName,          // "ADMIN" / "ADHERENT"
             String status,            // "ACTIVE" / "PENDING" / "SUSPENDED" ...
-            boolean actif,            // vrai si le compte est activé
+            boolean actif,            // true si le compte est activé
             boolean passwordMustChange,
-            Long adherentId           // null pour un admin, id pour un adhérent
+            Long adherentId           // null pour un admin, non null pour un adhérent
     ) { }
 
-    /** Liste tous les comptes (admin + adhérents). */
+    /**
+     * Liste tous les comptes existants (administrateurs et adhérents).
+     *
+     * @return liste des résumés de comptes
+     */
     List<UserAccountSummary> listAllAccounts();
 
     /**
-     * Change le statut d’un compte (par ex. ACTIVE / SUSPENDED),
-     * avec vérification métier :
-     * - un utilisateur ne peut pas modifier son propre statut.
+     * Modifie le statut d’un compte utilisateur (ex. ACTIVE → SUSPENDED).
      *
-     * @param targetUserId id du compte dont on change le statut
-     * @param newStatus    nouveau statut logique ("ACTIVE", "SUSPENDED", ...)
-     * @param actingUserId id de l'utilisateur qui effectue l'action
+     * <p>Règle métier typique : un utilisateur ne peut pas modifier
+     * son <em>propre</em> statut.</p>
+     *
+     * @param targetUserId identifiant du compte à modifier
+     * @param newStatus    nouveau statut logique (ex. "ACTIVE", "SUSPENDED")
+     * @param actingUserId identifiant de l’utilisateur qui effectue l’action
      */
     void changeAccountStatus(long targetUserId, String newStatus, long actingUserId);
 
     /**
-     * Supprime un compte (admin ou adhérent) avec règles métier :
-     * - un utilisateur ne peut pas supprimer son propre compte.
+     * Supprime un compte (admin ou adhérent).
      *
-     * @param targetUserId id du compte à supprimer
-     * @param actingUserId id de l'utilisateur qui effectue l'action
+     * <p>Règle métier typique : un utilisateur ne peut pas supprimer
+     * son <em>propre</em> compte.</p>
+     *
+     * @param targetUserId identifiant du compte à supprimer
+     * @param actingUserId identifiant de l’utilisateur qui effectue l’action
      */
     void deleteAccount(long targetUserId, long actingUserId);
 
-    // =============================
-    // ===== Structures retour =====
-    // =============================
+    // ======================================================================
+    // ========================== STRUCTURES DE RETOUR =======================
+    // ======================================================================
 
     /**
-     * Session utilisateur.
+     * Représente une session utilisateur après un login réussi.
      *
-     * @param userId             id technique du compte
-     * @param email              email de connexion
-     * @param role               rôle principal (ADMIN / ADHERENT / …)
-     * @param capabilities       droits détaillés
-     * @param passwordMustChange le mot de passe doit-il être changé à la prochaine connexion ?
-     * @param adherentId         id de l'adhérent si le compte est lié à un adhérent, sinon null
+     * <ul>
+     *     <li>{@code userId} : identifiant du compte</li>
+     *     <li>{@code email} : e-mail de connexion</li>
+     *     <li>{@code role} : rôle principal (ADMIN, ADHERENT…)</li>
+     *     <li>{@code capabilities} : liste des droits détaillés</li>
+     *     <li>{@code passwordMustChange} : le mot de passe doit-il être changé ?</li>
+     *     <li>{@code adherentId} : id de l’adhérent si le compte y est lié</li>
+     * </ul>
      */
     record UserSession(
             long userId,
@@ -148,13 +212,22 @@ public interface AccountService {
     ) { }
 
     /**
-     * Résultat d'authentification.
-     * success=true => session non nulle.
-     * success=false => session=null + message d'erreur.
+     * Résultat d’une tentative de connexion (login).
+     *
+     * <p>Cas possibles :</p>
+     * <ul>
+     *     <li>succès : {@code success == true} et {@code session != null}</li>
+     *     <li>échec : {@code success == false}, {@code session == null} et message renseigné</li>
+     * </ul>
      */
     record LoginResult(boolean success, String message, UserSession session) {
 
-        /** Échec avec message. */
+        /**
+         * Crée un résultat d’échec avec un message.
+         *
+         * @param message message d’erreur à afficher
+         * @return un {@code LoginResult} en échec
+         */
         public static LoginResult failure(String message) {
             String msg = (message == null || message.isBlank())
                     ? "Authentification échouée."
@@ -162,21 +235,36 @@ public interface AccountService {
             return new LoginResult(false, msg, null);
         }
 
-        /** Succès avec session valide. */
+        /**
+         * Crée un résultat de succès avec une session valide.
+         *
+         * @param session session utilisateur créée après login
+         * @return un {@code LoginResult} en succès
+         */
         public static LoginResult success(UserSession session) {
             return new LoginResult(true, null, session);
         }
     }
 
-    // =====================================================================
-    // ========= Méthode de confort pour le Setup Wizard ===================
-    // =====================================================================
+    // ======================================================================
+    // ============ MÉTHODE DE CONFORT POUR LE PREMIER ADMIN =================
+    // ======================================================================
 
     /**
-     * Surcharge pratique pour le Setup Wizard qui ne demande qu'un "nom complet".
-     * On découpe en (prenom, nom) de façon simple :
-     * - tout sauf le dernier mot = prénom
-     * - dernier mot = nom
+     * Méthode utilitaire pour l’assistant de configuration (Setup Wizard) :
+     * création du premier admin à partir d’un "nom complet".
+     *
+     * <p>Règle simple :</p>
+     * <ul>
+     *     <li>tout sauf le dernier mot = prénom</li>
+     *     <li>dernier mot = nom</li>
+     * </ul>
+     *
+     * <p>Exemple : "Marie Dupont" → prénom = "Marie", nom = "Dupont".</p>
+     *
+     * @param fullName    nom complet saisi (ex. "Marie Dupont")
+     * @param email       e-mail de connexion
+     * @param rawPassword mot de passe en clair
      */
     default void createFirstAdmin(String fullName, String email, String rawPassword) {
         if (fullName == null) {
@@ -185,7 +273,7 @@ public interface AccountService {
         fullName = fullName.trim();
 
         if (fullName.isEmpty()) {
-            // fallback : on considère tout comme nom
+            // Si rien n’est saisi, on passe un nom vide et un prénom vide.
             createFirstAdmin(email, rawPassword, fullName, "");
             return;
         }
@@ -198,12 +286,11 @@ public interface AccountService {
             prenom = fullName.substring(0, idx).trim();
             nom = fullName.substring(idx + 1).trim();
         } else {
-            // un seul mot => nom uniquement
+            // Un seul mot → on le considère comme nom de famille.
             prenom = "";
             nom = fullName;
         }
 
         createFirstAdmin(email, rawPassword, nom, prenom);
     }
-
 }

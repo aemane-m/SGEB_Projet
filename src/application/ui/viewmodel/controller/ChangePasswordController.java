@@ -7,48 +7,80 @@ import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+
 /**
  * Écran de changement de mot de passe imposé (première connexion).
+ *
+ * - Affiche un message personnalisé avec l'email de l'utilisateur.
+ * - Valide le nouveau mot de passe côté UI (champs non vides, longueur, confirmation).
+ * - Appelle {@link AccountService#changePasswordAndClearFlag(long, String)} en asynchrone.
+ * - En cas de succès, redirige via le {@link Navigator} vers le dashboard avec la session courante.
  */
 public final class ChangePasswordController {
 
-    @FXML private Label lblUserInfo;
-    @FXML private PasswordField txtNewPassword;
-    @FXML private PasswordField txtConfirmPassword;
-    @FXML private Button btnChange;
-    @FXML private Button btnCancel;
+    // ---------------------------------------------------------------------
+    // FXML
+    // ---------------------------------------------------------------------
+
+    @FXML private Label          lblUserInfo;
+    @FXML private PasswordField  txtNewPassword;
+    @FXML private PasswordField  txtConfirmPassword;
+    @FXML private Button         btnChange;
+    @FXML private Button         btnCancel;
     @FXML private ProgressIndicator progress;
-    @FXML private Label errorLabel;
-    @FXML private Label successLabel;
+    @FXML private Label          errorLabel;
+    @FXML private Label          successLabel;
+
+    // ---------------------------------------------------------------------
+    // Services / Contexte
+    // ---------------------------------------------------------------------
 
     private AccountService accountService;
-    private UserSession currentSession;
-    private Navigator navigator;
+    private UserSession    currentSession;
+    private Navigator      navigator;
+
+    // ---------------------------------------------------------------------
+    // Injection par le FxNavigator
+    // ---------------------------------------------------------------------
 
     public void setAccountService(AccountService accountService) {
-        this.accountService = accountService;
+        this.accountService = Objects.requireNonNull(accountService, "accountService ne peut pas être null");
     }
 
-    // NEW : injection du Navigator
     public void setNavigator(Navigator navigator) {
-        this.navigator = navigator;
+        this.navigator = navigator; // peut rester null => fallback fermeture fenêtre
     }
 
-    /** Appelé par le Navigator après un login avec mot de passe à changer. */
+    /**
+     * Appelé par le Navigator après un login avec mot de passe à changer.
+     */
     public void setSession(UserSession session) {
-        this.currentSession = session;
-        if (session != null && session.email() != null) {
+        this.currentSession = Objects.requireNonNull(session, "session ne peut pas être null");
+        if (session.email() != null && !session.email().isBlank()) {
             lblUserInfo.setText(
-                "Bonjour " + session.email() +
-                " — vous devez choisir un nouveau mot de passe avant de continuer."
+                    "Bonjour " + session.email()
+                    + " — vous devez choisir un nouveau mot de passe avant de continuer."
             );
+        } else {
+            lblUserInfo.setText("Vous devez choisir un nouveau mot de passe avant de continuer.");
         }
     }
+
+    // ---------------------------------------------------------------------
+    // Initialisation FXML
+    // ---------------------------------------------------------------------
 
     @FXML
     private void initialize() {
         hideMessages();
+        setBusy(false);
     }
+
+    // ---------------------------------------------------------------------
+    // Actions
+    // ---------------------------------------------------------------------
 
     @FXML
     private void onChangePassword() {
@@ -59,9 +91,10 @@ public final class ChangePasswordController {
             return;
         }
 
-        String pwd  = txtNewPassword.getText() != null ? txtNewPassword.getText() : "";
-        String pwd2 = txtConfirmPassword.getText() != null ? txtConfirmPassword.getText() : "";
+        String pwd  = safeText(txtNewPassword);
+        String pwd2 = safeText(txtConfirmPassword);
 
+        // Validation simple côté UI
         if (pwd.isBlank() || pwd2.isBlank()) {
             showError("Les deux champs sont obligatoires.");
             return;
@@ -77,71 +110,76 @@ public final class ChangePasswordController {
 
         setBusy(true);
 
-        new Thread(() -> {
-            try {
-                accountService.changePasswordAndClearFlag(currentSession.userId(), pwd);
-
-                Platform.runLater(() -> {
-                    showSuccess("Mot de passe mis à jour, redirection en cours...");
-                    // Redirection immédiate vers le bon écran
-                    if (navigator != null) {
-                        navigator.goToDashboard(currentSession);
-                    } else {
-                        // fallback : fermer la fenêtre
-                        txtNewPassword.getScene().getWindow().hide();
+        // Exécution asynchrone côté service
+        CompletableFuture
+                .runAsync(() -> accountService.changePasswordAndClearFlag(currentSession.userId(), pwd))
+                .whenComplete((res, ex) -> Platform.runLater(() -> {
+                    try {
+                        if (ex != null) {
+                            Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+                            showError(cause.getMessage() != null ? cause.getMessage() : cause.toString());
+                        } else {
+                            showSuccess("Mot de passe mis à jour, redirection en cours...");
+                            // Redirection vers le bon écran
+                            if (navigator != null) {
+                                navigator.goToDashboard(currentSession);
+                            } else if (txtNewPassword.getScene() != null) {
+                                // Fallback : fermer la fenêtre si pas de Navigator
+                                txtNewPassword.getScene().getWindow().hide();
+                            }
+                        }
+                    } finally {
+                        setBusy(false);
                     }
-                });
-
-            } catch (Exception ex) {
-                Platform.runLater(() -> showError(
-                        ex.getMessage() != null ? ex.getMessage() : ex.toString()
-                ));
-            } finally {
-                Platform.runLater(() -> setBusy(false));
-            }
-        }).start();
+                }));
     }
 
     @FXML
     private void onCancel() {
-        // retour à l'écran de Login (ou fermeture)
-        txtNewPassword.getScene().getWindow().hide();
+        if (navigator != null) {
+            navigator.goToLogin();
+        } else if (txtNewPassword != null && txtNewPassword.getScene() != null) {
+            txtNewPassword.getScene().getWindow().hide();
+        }
     }
 
+    // ---------------------------------------------------------------------
+    // Helpers UI (état & messages)
+    // ---------------------------------------------------------------------
+
     private void setBusy(boolean busy) {
-        btnChange.setDisable(busy);
-        btnCancel.setDisable(busy);
-        progress.setVisible(busy);
-        progress.setManaged(busy);
+        if (btnChange != null)  btnChange.setDisable(busy);
+        if (btnCancel != null)  btnCancel.setDisable(busy);
+        if (progress != null) {
+            progress.setVisible(busy);
+            progress.setManaged(busy);
+        }
     }
 
     private void hideMessages() {
-        errorLabel.setText("");
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
-
-        successLabel.setText("");
-        successLabel.setVisible(false);
-        successLabel.setManaged(false);
+        setLabelState(errorLabel,   "");
+        setLabelState(successLabel, "");
     }
 
     private void showError(String msg) {
-        errorLabel.setText(msg);
-        errorLabel.setVisible(true);
-        errorLabel.setManaged(true);
-
-        successLabel.setText("");
-        successLabel.setVisible(false);
-        successLabel.setManaged(false);
+        setLabelState(errorLabel,   msg);
+        setLabelState(successLabel, "");
     }
 
     private void showSuccess(String msg) {
-        successLabel.setText(msg);
-        successLabel.setVisible(true);
-        successLabel.setManaged(true);
+        setLabelState(successLabel, msg);
+        setLabelState(errorLabel,   "");
+    }
 
-        errorLabel.setText("");
-        errorLabel.setVisible(false);
-        errorLabel.setManaged(false);
+    private void setLabelState(Label label, String text) {
+        if (label == null) return;
+        boolean visible = text != null && !text.isBlank();
+        label.setText(text != null ? text : "");
+        label.setVisible(visible);
+        label.setManaged(visible);
+    }
+
+    private String safeText(PasswordField field) {
+        return (field != null && field.getText() != null) ? field.getText() : "";
     }
 }

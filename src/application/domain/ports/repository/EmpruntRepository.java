@@ -3,41 +3,56 @@ package application.domain.ports.repository;
 import java.time.LocalDate;
 import java.util.List;
 
-// SUPPRIMÉ : Import de Document n'est plus nécessaire ici
-// import application.domain.core.document.Document; 
 import application.domain.core.emprunt.Emprunt;
 
 /**
- * Port pour la gestion des emprunts.
+ * Port de persistance pour les {@link Emprunt}.
+ *
+ * <p>
+ * Fournit des méthodes pour récupérer les emprunts par adhérent,
+ * par document, ou selon leur statut (en cours, en retard).
+ * </p>
  */
 public interface EmpruntRepository extends Repository<Emprunt, Long> {
 
-    /** Trouve tous les emprunts (actifs ou passés) pour un adhérent donné. */
+    /**
+     * Retourne tous les emprunts (actifs ou passés) d’un adhérent.
+     *
+     * @param adherentId identifiant de l’adhérent
+     * @return liste de ses emprunts
+     */
     List<Emprunt> findByAdherentId(Long adherentId);
 
-    /** Trouve tous les emprunts (actifs ou passés) pour un document donné. */
+    /**
+     * Retourne tous les emprunts (actifs ou passés) concernant un document donné.
+     *
+     * @param documentId identifiant du document
+     * @return liste des emprunts pour ce document
+     */
     List<Emprunt> findByDocumentId(Long documentId);
 
-    /** Trouve tous les emprunts actuellement en cours (non retournés). */
+    /**
+     * Retourne tous les emprunts actuellement en cours (non retournés).
+     *
+     * @return liste des emprunts en cours
+     */
     List<Emprunt> findActiveEmprunts();
 
     /**
-     * Trouve les emprunts en cours (non retournés) dont la date de retour
-     * prévue est strictement antérieure à la date fournie.
-     * (Exigence 2.3 - Alertes)
+     * Retourne les emprunts en cours (non retournés) dont la date de
+     * retour prévue est antérieure à {@code dateLimite}.
      *
-     * @param dateLimite La date par rapport à laquelle vérifier le retard (ex: LocalDate.now()).
-     * @return La liste des emprunts en retard.
+     * @param dateLimite date de référence (souvent {@code LocalDate.now()})
+     * @return liste des emprunts en retard
      */
     List<Emprunt> findLateEmprunts(LocalDate dateLimite);
+
     /**
-     * Vérifie si un document spécifique est actuellement emprunté.
-     * (c'est-à-dire qu'il a un emprunt non retourné).
+     * Indique si un document est actuellement emprunté
+     * (c’est-à-dire s’il existe au moins un emprunt en cours pour ce document).
      *
-     * @param documentId L'ID du document à vérifier.
-     * @return true si le document est en cours d'emprunt, false sinon.
+     * @param documentId identifiant du document
+     * @return {@code true} si le document est emprunté, {@code false} sinon
      */
     boolean isDocumentEmprunte(long documentId);
-
-
 }

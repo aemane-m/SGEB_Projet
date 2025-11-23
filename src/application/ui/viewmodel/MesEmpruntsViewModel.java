@@ -2,7 +2,6 @@ package application.ui.viewmodel;
 
 import application.domain.core.document.Document;
 import application.domain.core.emprunt.Emprunt;
-import application.domain.ports.repository.AdherentRepository;
 import application.domain.ports.repository.DocumentRepository;
 import application.domain.service.EmpruntService;
 import javafx.application.Platform;
@@ -26,14 +25,20 @@ import java.util.stream.Collectors;
  */
 public final class MesEmpruntsViewModel {
 
+    // ------------------ Dépendances ------------------
+
     private final EmpruntService empruntService;
-    private final AdherentRepository adherentRepository;
     private final DocumentRepository documentRepository;
+
+    // ------------------ État domaine / UI ------------------
 
     private long adherentId;
 
-    private final ObservableList<Emprunt> emprunts = FXCollections.observableArrayList();
-    private final ObservableList<Document> availableDocuments = FXCollections.observableArrayList();
+    private final ObservableList<Emprunt> emprunts =
+            FXCollections.observableArrayList();
+
+    private final ObservableList<Document> availableDocuments =
+            FXCollections.observableArrayList();
 
     private final BooleanProperty loading = new SimpleBooleanProperty(false);
     private final StringProperty  error   = new SimpleStringProperty("");
@@ -41,20 +46,21 @@ public final class MesEmpruntsViewModel {
 
     private final BooleanProperty actifsOnly = new SimpleBooleanProperty(true);
 
-    // ------------------ constructeurs ------------------
+    // ------------------ Constructeurs ------------------
 
+    /** Constructeur fallback (SceneBuilder / tests sans injection complète). */
     public MesEmpruntsViewModel(EmpruntService empruntService) {
-        this(empruntService, null, null, null);
+        this(empruntService, null, null);
     }
 
     public MesEmpruntsViewModel(EmpruntService empruntService,
-                                AdherentRepository adherentRepository,
                                 DocumentRepository documentRepository,
                                 Long adherentId) {
-        this.empruntService = Objects.requireNonNull(empruntService, "empruntService");
-        this.adherentRepository = adherentRepository;
-        this.documentRepository = documentRepository;
 
+        this.empruntService = Objects.requireNonNull(empruntService, "empruntService");
+        this.documentRepository = documentRepository; // peut être null en mode fallback
+
+        // Quand on change le filtre actifsOnly, on relit les emprunts
         actifsOnly.addListener((obs, ov, nv) -> refresh());
 
         if (adherentId != null && adherentId > 0) {
@@ -73,7 +79,7 @@ public final class MesEmpruntsViewModel {
         refreshAvailableDocuments();
     }
 
-    // ------------------ refresh emprunts ------------------
+    // ------------------ Refresh emprunts ------------------
 
     public void refresh() {
         if (adherentId <= 0) {
@@ -90,7 +96,7 @@ public final class MesEmpruntsViewModel {
         });
     }
 
-    // ------------------ docs disponibles ------------------
+    // ------------------ Documents disponibles ------------------
 
     public void refreshAvailableDocuments() {
         if (documentRepository == null) {
@@ -110,7 +116,7 @@ public final class MesEmpruntsViewModel {
         });
     }
 
-    // ------------------ borrow adhérent ------------------
+    // ------------------ Emprunt côté adhérent ------------------
 
     public void borrowForCurrentAdherent(Document document, LocalDate dateEmprunt) {
         if (adherentId <= 0) {
@@ -144,22 +150,45 @@ public final class MesEmpruntsViewModel {
         });
     }
 
-    // ------------------ bindings exposés ------------------
+    // ------------------ Bindings exposés ------------------
 
-    public ObservableList<Emprunt> getEmprunts() { return emprunts; }
-    public ObservableList<Document> getAvailableDocuments() { return availableDocuments; }
+    public ObservableList<Emprunt> getEmprunts() {
+        return emprunts;
+    }
 
-    public ReadOnlyBooleanProperty loadingProperty() { return loading; }
-    public ReadOnlyStringProperty errorProperty()   { return error; }
-    public ReadOnlyStringProperty successProperty() { return success; }
+    public ObservableList<Document> getAvailableDocuments() {
+        return availableDocuments;
+    }
 
-    public BooleanProperty actifsOnlyProperty() { return actifsOnly; }
-    public boolean isActifsOnly() { return actifsOnly.get(); }
-    public void setActifsOnly(boolean value) { actifsOnly.set(value); }
+    public ReadOnlyBooleanProperty loadingProperty() {
+        return loading;
+    }
 
-    public void reportError(String message) { setError(message); }
+    public ReadOnlyStringProperty errorProperty() {
+        return error;
+    }
 
-    // ------------------ helpers async / erreurs ------------------
+    public ReadOnlyStringProperty successProperty() {
+        return success;
+    }
+
+    public BooleanProperty actifsOnlyProperty() {
+        return actifsOnly;
+    }
+
+    public boolean isActifsOnly() {
+        return actifsOnly.get();
+    }
+
+    public void setActifsOnly(boolean value) {
+        actifsOnly.set(value);
+    }
+
+    public void reportError(String message) {
+        setError(message);
+    }
+
+    // ------------------ Helpers async / erreurs ------------------
 
     private void runSafely(Runnable op) {
         setLoading(true);
@@ -167,15 +196,20 @@ public final class MesEmpruntsViewModel {
         setSuccess("");
 
         CompletableFuture
-            .runAsync(op)
-            .whenComplete((res, ex) -> {
-                Platform.runLater(() -> {
+                .runAsync(() -> {
+                    // Mode fallback : si le service n’est pas dispo, on évite un NPE
+                    if (empruntService == null) {
+                        Platform.runLater(() -> setError("Service emprunt indisponible (mode fallback)."));
+                        return;
+                    }
+                    op.run();
+                })
+                .whenComplete((res, ex) -> Platform.runLater(() -> {
                     if (ex != null) {
                         setError(getRootCauseMessage(ex));
                     }
                     setLoading(false);
-                });
-            });
+                }));
     }
 
     private void setLoading(boolean value) {

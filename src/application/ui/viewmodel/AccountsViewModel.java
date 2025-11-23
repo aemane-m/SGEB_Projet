@@ -13,16 +13,17 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- * ViewModel pour la gestion des comptes applicatifs (ADMIN + ADHERENT).
+ * ViewModel pour la gestion des comptes applicatifs.
  *
- * - Liste tous les comptes via AccountService.listAllAccounts()
+ * - Liste tous les comptes via {@link AccountService#listAllAccounts()}
  * - Permet de changer le statut (ACTIVE <-> SUSPENDED)
- * - Permet de supprimer un compte (avec règles métier gérées côté domaine)
+ * - Permet de supprimer un compte
  */
 public final class AccountsViewModel {
 
     private final AccountService accountService;
-    private final long actingUserId; // id de l'utilisateur connecté (admin actuel)
+    /** Id de l’utilisateur connecté (admin ayant l’autorité d’action). */
+    private final long actingUserId;
 
     // --- État UI ---
     private final ObservableList<UserAccountSummary> accounts =
@@ -36,7 +37,6 @@ public final class AccountsViewModel {
     public AccountsViewModel(AccountService accountService, long actingUserId) {
         this.accountService = Objects.requireNonNull(accountService, "accountService");
         this.actingUserId = actingUserId;
-
         refresh();
     }
 
@@ -51,7 +51,7 @@ public final class AccountsViewModel {
             Platform.runLater(() -> {
                 accounts.setAll(list);
 
-                // Si le compte sélectionné a disparu, on reset
+                // Si le compte sélectionné a disparu, on réinitialise la sélection
                 UserAccountSummary sel = selected.get();
                 if (sel != null &&
                         list.stream().noneMatch(a -> a.userId() == sel.userId())) {
@@ -69,32 +69,27 @@ public final class AccountsViewModel {
             return;
         }
 
-        final long targetUserId = sel.userId();
-        final String currentStatus = (sel.status() == null) ? "" : sel.status().trim().toUpperCase();
-        final String newStatus;
+        long targetUserId = sel.userId();
+        String currentStatus = (sel.status() == null) ? "" : sel.status().trim().toUpperCase();
+        String newStatus = "ACTIVE".equals(currentStatus) ? "SUSPENDED" : "ACTIVE";
 
-        if ("ACTIVE".equals(currentStatus)) {
-            newStatus = "SUSPENDED";
-        } else {
-            newStatus = "ACTIVE";
-        }
-
-        runSafely(() -> {
-            accountService.changeAccountStatus(targetUserId, newStatus, actingUserId);
-            // On recharge la liste après modification
-            List<UserAccountSummary> list = accountService.listAllAccounts();
-            Platform.runLater(() -> {
-                accounts.setAll(list);
-                // Réappliquer la sélection sur le même id si encore présent
-                list.stream()
-                        .filter(a -> a.userId() == targetUserId)
-                        .findFirst()
-                        .ifPresentOrElse(
-                                selected::set,
-                                () -> selected.set(null)
-                        );
-            });
-        }, err -> setError("Erreur lors du changement de statut : " + getRootCauseMessage(err)));
+        runSafely(
+                () -> {
+                    accountService.changeAccountStatus(targetUserId, newStatus, actingUserId);
+                    List<UserAccountSummary> list = accountService.listAllAccounts();
+                    Platform.runLater(() -> {
+                        accounts.setAll(list);
+                        list.stream()
+                                .filter(a -> a.userId() == targetUserId)
+                                .findFirst()
+                                .ifPresentOrElse(
+                                        selected::set,
+                                        () -> selected.set(null)
+                                );
+                    });
+                },
+                err -> setError("Erreur lors du changement de statut : " + getRootCauseMessage(err))
+        );
     }
 
     /** Supprime le compte sélectionné. */
@@ -105,17 +100,19 @@ public final class AccountsViewModel {
             return;
         }
 
-        final long targetUserId = sel.userId();
+        long targetUserId = sel.userId();
 
-        runSafely(() -> {
-            accountService.deleteAccount(targetUserId, actingUserId);
-            // On recharge la liste après suppression
-            List<UserAccountSummary> list = accountService.listAllAccounts();
-            Platform.runLater(() -> {
-                accounts.setAll(list);
-                selected.set(null);
-            });
-        }, err -> setError("Erreur lors de la suppression : " + getRootCauseMessage(err)));
+        runSafely(
+                () -> {
+                    accountService.deleteAccount(targetUserId, actingUserId);
+                    List<UserAccountSummary> list = accountService.listAllAccounts();
+                    Platform.runLater(() -> {
+                        accounts.setAll(list);
+                        selected.set(null);
+                    });
+                },
+                err -> setError("Erreur lors de la suppression : " + getRootCauseMessage(err))
+        );
     }
 
     // ===========================================================
@@ -130,15 +127,16 @@ public final class AccountsViewModel {
         setLoading(true);
         setError("");
 
-        CompletableFuture.runAsync(operation)
-                .whenComplete((result, exception) -> {
-                    Platform.runLater(() -> {
-                        if (exception != null) {
-                            errorHandler.accept(exception);
-                        }
-                        setLoading(false);
-                    });
-                });
+        CompletableFuture
+                .runAsync(operation)
+                .whenComplete((result, exception) ->
+                        Platform.runLater(() -> {
+                            if (exception != null) {
+                                errorHandler.accept(exception);
+                            }
+                            setLoading(false);
+                        })
+                );
     }
 
     private Consumer<Throwable> defaultErrorHandler() {
@@ -163,7 +161,7 @@ public final class AccountsViewModel {
     }
 
     private static String getRootCauseMessage(Throwable throwable) {
-        Objects.requireNonNull(throwable);
+        Objects.requireNonNull(throwable, "throwable ne doit pas être null");
         Throwable root = throwable;
         while (root.getCause() != null && root.getCause() != root) {
             root = root.getCause();

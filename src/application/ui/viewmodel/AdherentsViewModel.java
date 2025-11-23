@@ -28,13 +28,13 @@ import java.util.stream.Collectors;
  *   -> création d'un compte réel via AccountService (ADMIN ou ADHERENT)
  *   -> mot de passe temporaire imposé
  */
-public class AdherentsViewModel {
+public final class AdherentsViewModel {
 
     // ------------------------------------------------------------------------
     // Wrapper pour la TableView
     // ------------------------------------------------------------------------
 
-    public static class AdherentStatusWrapper {
+    public static final class AdherentStatusWrapper {
         private final Adherent adherent;
         private final StringProperty statutProperty = new SimpleStringProperty();
 
@@ -64,7 +64,7 @@ public class AdherentsViewModel {
             "Ex : 06 12 34 56 78 ou +33 6 12 34 56 78";
 
     /**
-     * Pattern : autorise chiffres, espaces, points, tirets, mais contrôle le nombre de chiffres.
+     * Pattern simple : autorise chiffres/espaces/etc. et contrôle seulement le nombre de chiffres.
      */
     private static boolean isTelephoneValid(String s) {
         if (s == null || s.isBlank()) {
@@ -82,10 +82,7 @@ public class AdherentsViewModel {
             return true;
         }
         // 0033XXXXXXXXX (0033 + 9 chiffres = 13)
-        if (digits.startsWith("0033") && digits.length() == 13) {
-            return true;
-        }
-        return false;
+        return digits.startsWith("0033") && digits.length() == 13;
     }
 
     // ------------------------------------------------------------------------
@@ -148,7 +145,6 @@ public class AdherentsViewModel {
                 loadFormFrom(newVal == null ? null : newVal.getAdherent())
         );
 
-        // Charge la liste initiale
         refresh();
     }
 
@@ -156,18 +152,12 @@ public class AdherentsViewModel {
     // Chargement / rafraîchissement
     // ------------------------------------------------------------------------
 
-    /**
-     * Recharge la liste + les statuts en 2 requêtes.
-     */
+    /** Recharge la liste + les statuts (pénalités actives). */
     public void refresh() {
         runSafely(() -> {
-            // 1) Adhérents
             List<Adherent> list = adherentRepository.findAll();
-
-            // 2) Comptage des pénalités actives
             Map<Long, Integer> penaltyCounts = penaliteRepository.findActivePenaltyCountsMap();
 
-            // Combine en mémoire
             List<AdherentStatusWrapper> wrappers = list.stream()
                     .map(adherent -> {
                         int count = penaltyCounts.getOrDefault(adherent.getId(), 0);
@@ -178,10 +168,10 @@ public class AdherentsViewModel {
                     })
                     .collect(Collectors.toList());
 
-            // Mise à jour UI
             Platform.runLater(() -> {
                 items.setAll(wrappers);
-                var sel = selected.get();
+
+                AdherentStatusWrapper sel = selected.get();
                 if (sel != null
                         && sel.getAdherent().getId() != null
                         && wrappers.stream().noneMatch(
@@ -224,104 +214,104 @@ public class AdherentsViewModel {
 
     /**
      * Sauvegarde l’état courant du formulaire.
-     * - Si formId == 0 => création : on crée aussi un compte via AccountService.
-     * - Sinon => simple mise à jour de la fiche adhérent.
+     * - Si formId == 0 => création (compte + adhérent)
+     * - Sinon => mise à jour de la fiche adhérent (+ reset éventuel du mot de passe)
      */
     public void saveCurrent() {
         boolean isNew = (formId.get() == 0);
 
         if (!isFormValid(isNew)) {
-            // isFormValid a déjà renseigné setError()
-            return;
+            return; // isFormValid a déjà renseigné l'erreur
         }
 
         if (isNew) {
-            // =========================
-            // ==== Création compte ====
-            // =========================
-            final String email      = trimToNull(formEmail.get());
-            final String nom        = trimToNull(formNom.get());
-            final String prenom     = trimToNull(formPrenom.get());
-            final String password   = formPassword.get();
-            final String role       = formRole.get();
-            final String telephone  = trimToNull(formTelephone.get());
-
-            runSafely(() -> {
-                Optional<Adherent> existingByEmail = adherentRepository.findByEmail(email);
-                if (existingByEmail.isPresent()) {
-                    throw new RuntimeException("Cet email est déjà utilisé par un autre adhérent.");
-                }
-
-                // 1) Création du compte PERSONNE
-                if ("ADMIN".equalsIgnoreCase(role)) {
-                    accountService.createAdmin(email, password, nom, prenom);
-                } else {
-                    accountService.createAdherentPublic(email, password, nom, prenom);
-                }
-
-                // 2) Création / mise à jour de l’Adherent avec le téléphone
-                Optional<Adherent> createdOpt = adherentRepository.findByEmail(email);
-                Adherent adh = createdOpt.orElseGet(Adherent::new);
-
-                adh.setNom(nom);
-                adh.setPrenom(prenom);
-                adh.setEmail(email);
-                adh.setTelephone(telephone);
-
-                adherentRepository.save(adh);
-
-                Platform.runLater(() -> {
-                    clearForm();
-                    refresh();
-                });
-            }, err -> setError("Erreur de création : " + getRootCauseMessage(err)));
-
+            createNewAdherentAndAccount();
         } else {
-            // =========================
-            // ====== Édition ==========
-            // =========================
-            Adherent model = toModelFromForm();
-            final String newPassword = trimToNull(formNewPassword.get());
-            final boolean forceChange = formForcePasswordChange.get();
-
-            runSafely(() -> {
-                // 1) Vérif unicité email
-                Optional<Adherent> existingByEmail = adherentRepository.findByEmail(model.getEmail());
-                if (existingByEmail.isPresent()
-                        && (model.getId() == null
-                        || !existingByEmail.get().getId().equals(model.getId()))) {
-                    throw new RuntimeException("Cet email est déjà utilisé par un autre adhérent.");
-                }
-
-                // 2) Sauvegarde fiche adhérent (nom, prenom, email, téléphone)
-                Adherent saved = adherentRepository.save(model);
-
-                // 3) Si admin a saisi un nouveau mot de passe, on appelle le domaine
-                if (newPassword != null && !newPassword.isBlank()) {
-                    // Dans ton modèle simplifié : adherentId == personne_id (pour les adhérents)
-                    long adherentId = saved.getId();
-                    Optional<AccountService.UserAccountSummary> accountOpt =
-                            accountService.findAccountByAdherentId(adherentId);
-
-                    if (accountOpt.isEmpty()) {
-                        throw new IllegalStateException(
-                                "Aucun compte associé trouvé pour l'adhérent id=" + adherentId);
-                    }
-
-                    long userId = accountOpt.get().userId();
-                    accountService.adminResetPassword(userId, newPassword, forceChange);
-                }
-
-                Platform.runLater(() -> {
-                    clearForm();
-                    refresh();
-                    items.stream()
-                            .filter(w -> w.getAdherent().getId().equals(saved.getId()))
-                            .findFirst()
-                            .ifPresent(selected::set);
-                });
-            }, err -> setError("Erreur de mise à jour : " + getRootCauseMessage(err)));
+            updateExistingAdherent();
         }
+    }
+
+    private void createNewAdherentAndAccount() {
+        final String email = trimToNull(formEmail.get());
+        final String nom = trimToNull(formNom.get());
+        final String prenom = trimToNull(formPrenom.get());
+        final String password = formPassword.get();
+        final String role = formRole.get();
+        final String telephone = trimToNull(formTelephone.get());
+        
+
+        runSafely(() -> {
+            Optional<Adherent> existingByEmail = adherentRepository.findByEmail(email);
+            if (existingByEmail.isPresent()) {
+                throw new RuntimeException("Cet email est déjà utilisé par un autre adhérent.");
+            }
+
+            // Création du compte PERSONNE
+            if ("ADMIN".equalsIgnoreCase(role)) {
+                accountService.createAdmin(email, password, nom, prenom);
+            } else {
+                accountService.createAdherentPublic(email, password, nom, prenom);
+            }
+
+            // Création / mise à jour de l’Adherent avec le téléphone
+            Optional<Adherent> createdOpt = adherentRepository.findByEmail(email);
+            Adherent adh = createdOpt.orElseGet(Adherent::new);
+
+            adh.setNom(nom);
+            adh.setPrenom(prenom);
+            adh.setEmail(email);
+            adh.setTelephone(telephone);
+
+            adherentRepository.save(adh);
+
+            Platform.runLater(() -> {
+                clearForm();
+                refresh();
+            });
+        }, err -> setError("Erreur de création : " + getRootCauseMessage(err)));
+    }
+
+    private void updateExistingAdherent() {
+        Adherent model = toModelFromForm();
+        final String newPassword = trimToNull(formNewPassword.get());
+        final boolean forceChange = formForcePasswordChange.get();
+
+        runSafely(() -> {
+            // 1) Vérif unicité email
+            Optional<Adherent> existingByEmail = adherentRepository.findByEmail(model.getEmail());
+            if (existingByEmail.isPresent()
+                    && (model.getId() == null
+                    || !existingByEmail.get().getId().equals(model.getId()))) {
+                throw new RuntimeException("Cet email est déjà utilisé par un autre adhérent.");
+            }
+
+            // 2) Sauvegarde fiche adhérent
+            Adherent saved = adherentRepository.save(model);
+
+            // 3) Reset mot de passe éventuel
+            if (newPassword != null && !newPassword.isBlank()) {
+                long adherentId = saved.getId();
+                Optional<AccountService.UserAccountSummary> accountOpt =
+                        accountService.findAccountByAdherentId(adherentId);
+
+                if (accountOpt.isEmpty()) {
+                    throw new IllegalStateException(
+                            "Aucun compte associé trouvé pour l'adhérent id=" + adherentId);
+                }
+
+                long userId = accountOpt.get().userId();
+                accountService.adminResetPassword(userId, newPassword, forceChange);
+            }
+
+            Platform.runLater(() -> {
+                clearForm();
+                refresh();
+                items.stream()
+                        .filter(w -> w.getAdherent().getId().equals(saved.getId()))
+                        .findFirst()
+                        .ifPresent(selected::set);
+            });
+        }, err -> setError("Erreur de mise à jour : " + getRootCauseMessage(err)));
     }
 
     /** Supprime l'adhérent actuellement sélectionné. */
@@ -345,7 +335,6 @@ public class AdherentsViewModel {
         final Long idToDelete = a.getId();
 
         runSafely(() -> {
-            // Vérifie si l'adhérent a encore des emprunts non retournés
             boolean hasActiveLoans = empruntRepository.findByAdherentId(idToDelete).stream()
                     .anyMatch(emprunt -> emprunt.getDateRetourEffective() == null);
 
@@ -437,7 +426,7 @@ public class AdherentsViewModel {
     }
 
     // ------------------------------------------------------------------------
-    // Helpers (Formulaire)
+    // Helpers Formulaire
     // ------------------------------------------------------------------------
 
     /** Réinitialise tous les champs du formulaire. */
@@ -491,7 +480,6 @@ public class AdherentsViewModel {
             }
         }
 
-        // OK
         return true;
     }
 
@@ -508,11 +496,9 @@ public class AdherentsViewModel {
         formEmail.set(nz(a.getEmail()));
         formTelephone.set(nz(a.getTelephone()));
 
-        // En édition, on ne propose pas de changer le rôle ni le mot de passe temporaire ici
+        // En édition, on ne change pas le rôle ni le mot de passe temporaire
         formRole.set("");
         formPassword.set("");
-
-        // Et on reset aussi les champs liés à la modification de compte
         formNewPassword.set("");
         formForcePasswordChange.set(false);
     }
@@ -536,7 +522,7 @@ public class AdherentsViewModel {
 
     private static String nz(String s) {
         return (s == null) ? "" : s;
-    }
+        }
 
     private static String trimToNull(String s) {
         if (s == null) return null;
@@ -556,21 +542,16 @@ public class AdherentsViewModel {
         setLoading(true);
         setError("");
 
-        CompletableFuture.runAsync(() -> {
-            if (adherentRepository == null
-                    || empruntRepository == null
-                    || penaliteRepository == null) {
-                throw new IllegalStateException("Un ou plusieurs repositories ne sont pas disponibles.");
-            }
-            operation.run();
-        }).whenComplete((result, exception) -> {
-            Platform.runLater(() -> {
-                if (exception != null) {
-                    errorHandler.accept(exception);
-                }
-                setLoading(false);
-            });
-        });
+        CompletableFuture
+                .runAsync(operation)
+                .whenComplete((result, exception) ->
+                        Platform.runLater(() -> {
+                            if (exception != null) {
+                                errorHandler.accept(exception);
+                            }
+                            setLoading(false);
+                        })
+                );
     }
 
     private Consumer<Throwable> defaultErrorHandler() {
@@ -586,11 +567,11 @@ public class AdherentsViewModel {
     }
 
     private void setError(String message) {
-        String safeMessage = (message == null) ? "" : message;
+        String safe = (message == null) ? "" : message;
         if (Platform.isFxApplicationThread()) {
-            error.set(safeMessage);
+            error.set(safe);
         } else {
-            Platform.runLater(() -> error.set(safeMessage));
+            Platform.runLater(() -> error.set(safe));
         }
     }
 
@@ -599,7 +580,7 @@ public class AdherentsViewModel {
     }
 
     private static String getRootCauseMessage(Throwable throwable) {
-        Objects.requireNonNull(throwable);
+        Objects.requireNonNull(throwable, "throwable ne doit pas être null");
         Throwable root = throwable;
         while (root.getCause() != null && root.getCause() != root) {
             root = root.getCause();

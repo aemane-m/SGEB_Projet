@@ -1,18 +1,23 @@
 package application.domain.ports.external;
 
 /**
- * DTO (Data Transfer Object) pour les métadonnées
- * retournées par le BookInfoProvider.
- * CORRIGÉ : Ajout de nbPages, suppression de description (non fournie).
+ * <p>
+ * DTO (Data Transfer Object) contenant les métadonnées d’un livre
+ * retournées par un {@link BookInfoProvider}.
+ * </p>
+ *
+ * <p>
+ * Ce type est immuable (record) et n’appartient à aucune technologie
+ * particulière : il représente un contrat d’échange simple.
+ * </p>
  */
 public record BookMeta(
-    String isbn,
-    String titre,
-    String auteur,
-    String editeur,
-    Integer anneePublication,
-    String genre,       // Gardé (sera peuplé)
-    Integer nbPages,    // <-- AJOUTÉ
-    String coverUrl
+        String isbn,
+        String titre,
+        String auteur,
+        String editeur,
+        Integer anneePublication,
+        String genre,
+        Integer nbPages,
+        String coverUrl
 ) {}
-

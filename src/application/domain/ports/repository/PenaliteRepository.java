@@ -1,23 +1,25 @@
 package application.domain.ports.repository;
 
-import application.domain.core.emprunt.Penalite;
-
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
+import application.domain.core.emprunt.Penalite;
+
 /**
- * Port (Repository) pour la gestion des pénalités.
- * 
- * Cette interface définit toutes les opérations nécessaires pour
- * récupérer, persister et mettre à jour les pénalités appliquées aux adhérents.
+ * Port de persistance pour les {@link Penalite}.
+ *
+ * <p>
+ * Permet de récupérer, lister et mettre à jour les pénalités
+ * associées aux adhérents.
+ * </p>
  */
 public interface PenaliteRepository extends Repository<Penalite, Long> {
 
     /**
-     * Retourne les pénalités ACTIVES (non payées) d’un adhérent.
+     * Retourne les pénalités <strong>actives</strong> (non payées) d’un adhérent.
      *
-     * @param adherentId ID de l'adhérent
+     * @param adherentId identifiant de l’adhérent
      * @return liste des pénalités actives
      */
     List<Penalite> findActivesByAdherentId(Long adherentId);
@@ -25,32 +27,31 @@ public interface PenaliteRepository extends Repository<Penalite, Long> {
     /**
      * Retourne toutes les pénalités (actives ou payées) d’un adhérent.
      *
-     * @param adherentId ID de l'adhérent
-     * @return liste complète des pénalités
+     * @param adherentId identifiant de l’adhérent
+     * @return liste complète de ses pénalités
      */
     List<Penalite> findByAdherentId(long adherentId);
 
     /**
-     * Retourne les pénalités actives pour l’ensemble des adhérents,
-     * sous forme d’une map { adherentId -> nombre de pénalités actives }.
+     * Retourne, pour chaque adhérent, le nombre de pénalités actives.
      *
-     * @return map des compteurs de pénalités actives
+     * @return une map { idAdherent -> nombreDePénalitésActives }
      */
     Map<Long, Integer> findActivePenaltyCountsMap();
 
     /**
-     * Retourne toutes les pénalités actives (utile pour les écrans administrateur).
+     * Retourne toutes les pénalités actives (tous adhérents confondus).
      *
-     * @return liste de toutes les pénalités actives
+     * @return liste des pénalités actives
      */
     List<Penalite> findAllActives();
 
     /**
-     * Marque toutes les pénalités actives d’un adhérent comme payées,
+     * Marque comme payées toutes les pénalités actives d’un adhérent,
      * en fixant leur date de paiement.
      *
-     * @param adherentId ID de l'adhérent
-     * @param datePaiement date du paiement
+     * @param adherentId  identifiant de l’adhérent
+     * @param datePaiement date de paiement à appliquer
      * @return nombre de pénalités mises à jour
      */
     int reglerToutesPourAdherent(long adherentId, LocalDate datePaiement);

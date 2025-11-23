@@ -8,15 +8,9 @@ import javafx.beans.binding.BooleanBinding;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
-import javafx.stage.Stage;
 
-import java.io.IOException;
-import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -39,12 +33,15 @@ public class LoginController {
     @FXML private Button btnLogin;
     @FXML private Label errorLabel;
     @FXML private ProgressIndicator progress;
+    @FXML private Hyperlink lnkForgotPassword;
+
 
     // --- Bouton retour à la Landing ---
     @FXML private Button btnBackToLanding;
 
     // --- Service injecté (domaine) ---
     private AccountService accountService;
+    
 
     // --- Navigation injectée (UI) ---
     private Navigator navigator;
@@ -85,6 +82,10 @@ public class LoginController {
         if (btnBackToLanding != null) {
             btnBackToLanding.disableProperty().bind(loading);
         }
+        if (lnkForgotPassword != null) {
+            lnkForgotPassword.disableProperty().bind(loading);
+            lnkForgotPassword.setOnAction(e -> onForgotPasswordClicked());
+        }    
 
         // --- Spinner de chargement ---
         progress.visibleProperty().bind(loading);
@@ -136,7 +137,7 @@ public class LoginController {
                     return;
                 }
 
-                // ⚠️ Nouveau : mot de passe à changer ?
+                // Mot de passe à changer ?
                 if (session.passwordMustChange()) {
                     if (navigator != null) {
                         navigator.goToChangePassword(session);
@@ -149,8 +150,8 @@ public class LoginController {
 
                 // Chemin normal : on ouvre le Shell + Dashboard
                 if (navigator != null) {
-                    navigator.showShell();             // ouvre MainShell.fxml si besoin
-                    navigator.goToDashboard(session);  // dashboard + contexte utilisateur
+                    // goToDashboard gère déjà showShell() en interne
+                    navigator.goToDashboard(session);
                 } else {
                     System.err.println("Navigator non injecté dans LoginController ; impossible de naviguer vers le Dashboard.");
                     showError("Erreur technique : navigation indisponible.");
@@ -158,7 +159,58 @@ public class LoginController {
             });
         }, ex -> showError("Erreur : " + msg(ex)));
     }
+    // ===================================================================
+    // Mot de passe oublié
+    // ===================================================================
 
+    @FXML
+    private void onForgotPasswordClicked() {
+        clearMessages();
+
+        if (accountService == null) {
+            showError("Service d'authentification non initialisé.");
+            return;
+        }
+
+        // On propose l'email déjà saisi, si présent
+        TextInputDialog dialog = new TextInputDialog(trim(usernameField.getText()));
+        dialog.setTitle("Mot de passe oublié");
+        dialog.setHeaderText("Saisissez votre adresse email.");
+        dialog.setContentText("Email :");
+
+        var result = dialog.showAndWait();
+        if (result.isEmpty()) {
+            return; // annulé
+        }
+
+        String email = trim(result.get());
+        if (isBlank(email)) {
+            showError("Veuillez saisir une adresse email.");
+            return;
+        }
+
+        runSafely(() -> {
+            var optSession = accountService.findSessionForPasswordReset(email);
+
+            Platform.runLater(() -> {
+                if (optSession.isEmpty()) {
+                    showError("Aucun compte ne correspond à cet email.");
+                    return;
+                }
+
+                var session = optSession.get();
+
+                if (navigator != null) {
+                    // On réutilise l’écran de changement de mot de passe
+                    navigator.goToChangePassword(session);
+                } else {
+                    showError("Erreur technique : navigation indisponible.");
+                }
+            });
+        }, ex -> showError("Erreur : " + msg(ex)));
+    }
+    
+    
     // ===================================================================
     // Retour à la Landing
     // ===================================================================
@@ -169,50 +221,13 @@ public class LoginController {
      */
     @FXML
     private void onBackToLandingClicked() {
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/application/ui/view/LandingView.fxml")
-            );
-            Parent root = loader.load();
-
-            // Injection légère du service + navigator dans le contrôleur de la Landing
-            Object controller = loader.getController();
-            if (controller != null) {
-                // setAccountService(AccountService)
-                if (accountService != null) {
-                    try {
-                        Method m = controller.getClass()
-                                .getMethod("setAccountService", AccountService.class);
-                        m.invoke(controller, accountService);
-                    } catch (NoSuchMethodException ignored) {
-                        // la Landing ne gère peut-être pas l'AccountService, ce n'est pas grave
-                    }
-                }
-                // setNavigator(Navigator)
-                if (navigator != null) {
-                    try {
-                        Method m = controller.getClass()
-                                .getMethod("setNavigator", Navigator.class);
-                        m.invoke(controller, navigator);
-                    } catch (NoSuchMethodException ignored) {
-                        // la Landing ne gère peut-être pas le Navigator, ce n'est pas grave
-                    }
-                }
-            }
-
-            // On remplace la scène actuelle par la Landing
-            Stage stage = (Stage) loginPane.getScene().getWindow();
-            Scene scene = new Scene(root,
-                    stage.getScene().getWidth(),
-                    stage.getScene().getHeight());
-            stage.setScene(scene);
-            stage.centerOnScreen();
-        } catch (IOException e) {
-            e.printStackTrace();
-            showError("Impossible de revenir à l'accueil : " + e.getMessage());
-        } catch (Exception e) {
-            e.printStackTrace();
-            showError("Erreur inattendue lors du retour à l'accueil.");
+        // On délègue complètement la logique au Navigator, qui sait
+        // comment afficher la Landing + réinitialiser le Shell.
+        if (navigator != null) {
+            navigator.logout();
+        } else {
+            // Fallback : message d'erreur (cas théorique)
+            showError("Navigation indisponible (navigator non injecté).");
         }
     }
 
