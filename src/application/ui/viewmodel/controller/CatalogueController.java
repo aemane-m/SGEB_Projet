@@ -31,7 +31,7 @@ import java.util.Optional;
 /**
  * Contrôleur de la vue Catalogue.
  *
- * - Admin : CRUD complet (ajout / édition / suppression, jaquettes…)
+ * - Admin : CRUD (ajout / édition / suppression, jaquettes…)
  * - Adhérent : consultation uniquement (recherche, filtres, détails).
  *
  * Toute la logique métier (recherche, filtres, CRUD) est déléguée

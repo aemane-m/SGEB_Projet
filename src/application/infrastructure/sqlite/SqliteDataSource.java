@@ -20,13 +20,7 @@ import java.sql.Statement;
  *   <li>Timeout sur les verrous : {@code PRAGMA busy_timeout = 5000}</li>
  *   <li>Journalisation WAL : {@code PRAGMA journal_mode = WAL}</li>
  * </ul>
- *
- * <p>Utilisation :</p>
- * <pre>
- * try (Connection c = SqliteDataSource.getConnection()) {
- *     // Requêtes SQL...
- * }
- * </pre>
+
  */
 public final class SqliteDataSource {
 
@@ -86,8 +80,7 @@ public final class SqliteDataSource {
      * @throws SQLException en cas d'erreur d'ouverture ou de configuration.
      */
     public static Connection getConnection() throws SQLException {
-        // Si besoin, on pourrait forcer le chargement du driver :
-        // Class.forName("org.sqlite.JDBC");
+        
 
         Connection cnx = DriverManager.getConnection(getJdbcUrl());
 

@@ -18,7 +18,6 @@ public final class FXMLLoaderUtil {
 
     /** Classe utilitaire : constructeur privé. */
     private FXMLLoaderUtil() {
-        // No-op
     }
 
     /**
@@ -47,7 +46,6 @@ public final class FXMLLoaderUtil {
         } catch (IOException e) {
             throw new RuntimeException("Échec du chargement FXML : " + fxmlPath, e);
         } catch (IllegalStateException e) {
-            // Cas rares : problème de controller factory ou FXML mal formé
             throw new RuntimeException("Erreur pendant le chargement FXML : " + fxmlPath, e);
         }
     }

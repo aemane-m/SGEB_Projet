@@ -151,7 +151,7 @@ public class LocalCoverStorageAdapter implements CoverStoragePort {
      * vers le dossier de stockage, et construit un {@link SavedCover}.
      *
      * @param tempFile      fichier temporaire à déplacer
-     * @param suggestedName nom suggéré (non utilisé ici mais gardé pour évolution)
+     * @param suggestedName nom suggéré 
      * @return un objet SavedCover avec les métadonnées
      */
     private SavedCover finalizeSave(Path tempFile, String suggestedName) throws IOException {

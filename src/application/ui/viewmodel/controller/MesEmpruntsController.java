@@ -116,8 +116,7 @@ public final class MesEmpruntsController {
      * Constructeur sans argument requis par JavaFX.
      */
     public MesEmpruntsController() {
-        // L'injection réelle du ViewModel se fait via le constructeur dédié
-        // ou via setViewModel(...) lorsque le Navigator utilise une factory.
+        
     }
 
     /**
@@ -231,12 +230,7 @@ public final class MesEmpruntsController {
 
     /**
      * Lie les composants UI aux propriétés exposées par le ViewModel :
-     * <ul>
-     *     <li>chkActifsOnly &lt;=&gt; viewModel.actifsOnlyProperty()</li>
-     *     <li>progress.visible &lt;= viewModel.loadingProperty()</li>
-     *     <li>errorLabel / successLabel &lt;= viewModel.errorProperty() / successProperty()</li>
-     *     <li>btnRefresh déclenche un rafraîchissement des données</li>
-     * </ul>
+     * 
      */
     private void bindUI() {
         // --- Filtre "Actifs seulement" ---
@@ -329,8 +323,7 @@ public final class MesEmpruntsController {
 
             @Override
             public Document fromString(String s) {
-                // Non utilisé : l'utilisateur choisit dans la liste,
-                // on ne convertit jamais un texte libre en Document.
+                
                 return null;
             }
         });

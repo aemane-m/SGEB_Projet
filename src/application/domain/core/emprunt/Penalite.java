@@ -6,8 +6,8 @@ import java.util.Objects;
 /**
  * Entité de domaine représentant une pénalité monétaire associée à un {@link Emprunt}.
  *
- * <p>Une pénalité correspond à un montant dû par un adhérent (souvent à cause d’un
- * retard) et est liée à :</p>
+ * <p>Une pénalité correspond à un montant dû par un adhérent à cause d’un
+ * retard et est liée à :</p>
  *
  * <ul>
  *     <li>un emprunt ({@code empruntId})</li>
@@ -90,7 +90,7 @@ public final class Penalite {
      * @param id identifiant technique (peut être null pour une nouvelle pénalité)
      * @param empruntId identifiant de l'emprunt lié
      * @param adherentId identifiant de l'adhérent concerné
-     * @param montant montant de la pénalité (doit être &gt; 0)
+     * @param montant montant de la pénalité (doit être > 0)
      * @param dateGeneration date de génération de la pénalité
      * @param datePaiement date de paiement (ou null si non payée)
      * @throws IllegalArgumentException si les invariants ne sont pas respectés

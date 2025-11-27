@@ -53,7 +53,7 @@ public final class Money implements Comparable<Money> {
      */
     private Money(BigDecimal amount, Currency currency) {
         this.amount = amount.setScale(SCALE, RoundingMode.HALF_UP);
-        this.currency = Objects.requireNonNull(currency, "currency");
+        this.currency = Objects.requireNonNull(currency, "La devise ne peut pas être nulle");
     }
 
     /**
@@ -64,7 +64,7 @@ public final class Money implements Comparable<Money> {
      * @return instance immuable de Money
      */
     public static Money of(BigDecimal amount, Currency currency) {
-        Objects.requireNonNull(amount, "amount");
+        Objects.requireNonNull(amount, "Le montant ne peut pas être null");
         return new Money(amount, currency);
     }
 

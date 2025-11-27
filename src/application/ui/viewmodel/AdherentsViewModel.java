@@ -221,7 +221,7 @@ public final class AdherentsViewModel {
         boolean isNew = (formId.get() == 0);
 
         if (!isFormValid(isNew)) {
-            return; // isFormValid a déjà renseigné l'erreur
+            return; 
         }
 
         if (isNew) {

@@ -116,7 +116,7 @@ public class SqliteEmpruntRepository implements EmpruntRepository {
     @Override
     public void delete(Long id) {
         if (id == null || id <= 0) {
-            return; // Rien à faire
+            return; 
         }
 
         final String sql = "DELETE FROM EMPRUNT WHERE emprunt_id = ?";
@@ -280,7 +280,6 @@ public class SqliteEmpruntRepository implements EmpruntRepository {
 
     @Override
     public boolean isDocumentEmprunte(long documentId) {
-        // Ici, on n’a pas besoin de JOIN : on veut juste savoir si un prêt actif existe.
         final String sql = """
             SELECT COUNT(*)
               FROM EMPRUNT
@@ -363,7 +362,6 @@ public class SqliteEmpruntRepository implements EmpruntRepository {
 
     /**
      * Lie les paramètres communs pour INSERT et UPDATE
-     * (sans l’ID de l’emprunt).
      *
      * @return l’index du prochain paramètre libre.
      */

@@ -63,15 +63,6 @@ public interface PenaltyCalculator {
      * Calcule la pénalité due pour un emprunt donné, valorisée à une date précise.
      * </p>
      *
-    * <p>
-     * Cette méthode est <strong>pure</strong> :
-     * </p>
-     * <ul>
-     *     <li>pas d’effets de bord</li>
-     *     <li>pas d’accès BD / réseau</li>
-     *     <li>résultat déterministe</li>
-     * </ul>
-     *
      * @param emprunt       emprunt concerné (non null)
      * @param valuationDate date à laquelle on évalue la pénalité (non null)
      *
@@ -86,7 +77,7 @@ public interface PenaltyCalculator {
     /**
      * <p>
      * Utilitaire : calcule la pénalité en utilisant une horloge injectée
-     * (utile en tests unitaires pour maîtriser le "temps").
+     * pour les tests unitaires pour maîtriser le "temps".
      * </p>
      *
      * @param emprunt emprunt concerné
@@ -101,12 +92,7 @@ public interface PenaltyCalculator {
      * <p>
      * Utilitaire : calcule la pénalité en utilisant la date actuelle du système.
      * </p>
-     *
-     * <p>
-     * ⚠️ À éviter en tests unitaires (non déterministe).  
-     * Préférer {@link #computePenalty(Emprunt, Clock)}.
-     * </p>
-     *
+     * 
      * @param emprunt emprunt concerné
      * @return pénalité calculée à "aujourd’hui"
      */

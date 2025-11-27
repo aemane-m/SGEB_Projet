@@ -31,7 +31,7 @@ import application.domain.core.security.Role;
  *
  * <h3>Modèle d'autorisation (RBAC)</h3>
  * <p>
- * L’application utilise un système d’autorisations basé sur les rôles (RBAC) :
+ * L’application utilise un système d’autorisations basé sur les rôles :
  * {@link Role} → ensemble de {@link Capability}.  
  * Cette structure permet d’écrire :
  * </p>
@@ -85,7 +85,7 @@ public final class Administrateur extends Personne {
     }
 
     // ======================================================================
-    // ============================== MÉTIER / RBAC ==========================
+    // ============================== MÉTIER ==========================
     // ======================================================================
 
     /**

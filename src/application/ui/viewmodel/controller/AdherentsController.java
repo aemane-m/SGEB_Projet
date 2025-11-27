@@ -219,7 +219,6 @@ public final class AdherentsController {
             );
         } else {
             // Édition : nom / prénom / email obligatoires
-            // (la logique de mot de passe est gérée par le ViewModel)
             btnSave.disableProperty().bind(
                     viewModel.formNomProperty().isEmpty()
                             .or(viewModel.formPrenomProperty().isEmpty())

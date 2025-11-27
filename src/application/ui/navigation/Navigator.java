@@ -13,7 +13,6 @@ import application.domain.service.AccountService;
  */
 public interface Navigator {
 
-    /** Affiche le Shell principal si ce n'est pas déjà fait. */
     void showShell();
 
     /**
@@ -59,7 +58,6 @@ public interface Navigator {
 
     /**
      * Navigue vers l'écran de création de compte adhérent (inscription publique).
-     * Peut temporairement réutiliser la même vue que Login.
      */
     void goToRegister();
 

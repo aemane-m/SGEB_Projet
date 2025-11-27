@@ -57,12 +57,12 @@ public class Adherent extends Personne {
      * <p>
      * Par convention, on ne garde dans cette liste que les emprunts
      * considérés comme "actifs" (en cours de suivi).  
-     * La séparation actif / historique est gérée côté service si besoin.
+     * La séparation actif / historique est gérée côté service.
      * </p>
      */
     private final List<Emprunt> empruntsActifs = new ArrayList<>();
 
-    /** Rôle fonctionnel de l'adhérent (modèle RBAC). */
+    /** Rôle fonctionnel de l'adhérent. */
     private final Role role = initialiserRoleAdherent();
 
     // ======================================================================
@@ -216,11 +216,6 @@ public class Adherent extends Personne {
 
     /**
      * Clôture un emprunt actif (retour du document) et génère une pénalité si nécessaire.
-     * <p>
-     * L’emprunt reste dans la liste des actifs : la séparation actif / historique
-     * peut être gérée par un service qui appelle ensuite {@link #retirerEmprunt(Emprunt)}.
-     * </p>
-     *
      * @param emprunt emprunt actif à clôturer
      * @param dateRetour date effective de retour
      * @throws IllegalArgumentException si l’emprunt n’est pas connu comme actif pour cet adhérent
@@ -292,8 +287,7 @@ public class Adherent extends Personne {
     /**
      * Retire un emprunt de la liste des "emprunts actifs".
      * <p>
-     * Généralement appelé par un service lorsque l’emprunt est archivé
-     * dans un historique.
+     * Appelé lorsque l’emprunt est archivé dans un historique.
      * </p>
      *
      * @param emprunt emprunt à retirer
@@ -376,7 +370,6 @@ public class Adherent extends Personne {
 
     /**
      * Variante utilisant la date système actuelle.
-     * <p>A éviter dans les tests unitaires, préférer {@link #hasPenalite(Clock)}.</p>
      */
     public boolean hasPenaliteNow() {
         return hasPenalite(LocalDate.now());

@@ -261,8 +261,6 @@ public final class CatalogueViewModel {
 
     /**
      * Filtres en mémoire (type, genre, éditeur, intervalle années).
-     * NB : le flag "disponibleUniquement" est prévu pour une extension ultérieure
-     * (il n'est pas appliqué ici pour ne pas présupposer d'une API sur Document).
      */
     private static List<Document> applyInMemoryFilters(List<Document> src, FilterParams fp) {
         if (src == null || src.isEmpty()) {
@@ -340,12 +338,12 @@ public final class CatalogueViewModel {
         });
     }
 
-    /** Surcharge pratique : création sans couverture distante. */
+    /** Surcharge : création sans couverture distante. */
     public void create(Document doc) {
         create(doc, null);
     }
 
-    /** Surcharge pratique : update sans couverture distante. */
+    /** Surcharge : update sans couverture distante. */
     public void update(Document doc) {
         update(doc, null);
     }

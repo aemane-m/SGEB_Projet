@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 /**
- * Contrat pour gérer le stockage physique des images (Disque Dur, Cloud...).
+ * Contrat pour gérer le stockage physique des images en local.
  * <p>
  * Ce port est spécialisé dans l'importation d'images depuis l'extérieur
  * (Internet ou un fichier local de l'ordinateur de l'utilisateur) vers notre bibliothèque.
@@ -32,7 +32,4 @@ public interface CoverStoragePort {
      */
     SavedCover saveCoverFromLocalFile(Path fichierSource, String nomSuggere) throws IOException;
 
-    // Note : Pour un débutant, on expose directement IOException.
-    // C'est une "Checked Exception", cela oblige celui qui appelle la méthode
-    // à mettre un bloc try/catch pour gérer les pannes de disque/réseau.
 }

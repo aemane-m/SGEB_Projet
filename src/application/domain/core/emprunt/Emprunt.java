@@ -114,7 +114,7 @@ public final class Emprunt {
      * @param doc document emprunté
      * @param adherent adhérent emprunteur
      * @param dateEmprunt date de l'emprunt
-     * @param dureeJours durée souhaitée en jours (doit être &gt;= 1)
+     * @param dureeJours durée souhaitée en jours (doit être >= 1)
      * @return une nouvelle instance d'Emprunt
      * @throws IllegalArgumentException si la durée est &lt; 1 jour
      */
@@ -326,7 +326,6 @@ public final class Emprunt {
                     ? EmpruntStatus.RETOURNE_EN_RETARD
                     : EmpruntStatus.RENDU;
         }
-        // Toujours en cours
         return estEnRetard(asOf) ? EmpruntStatus.EN_RETARD : EmpruntStatus.EN_COURS;
     }
 

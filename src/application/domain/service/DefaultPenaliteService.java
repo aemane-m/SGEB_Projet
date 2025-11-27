@@ -22,7 +22,7 @@ import java.util.Objects;
  * <p>Les règles métier principales :</p>
  * <ul>
  *     <li>on ne peut pas régler une pénalité annulée,</li>
- *     <li>si une pénalité est déjà payée, on ne fait rien (idempotence),</li>
+ *     <li>si une pénalité est déjà payée, on ne fait rien,</li>
  *     <li>la date de paiement appliquée est toujours "aujourd'hui"</li>
  *     <li>le repository gère les mises à jour persistantes.</li>
  * </ul>
@@ -50,7 +50,7 @@ public class DefaultPenaliteService implements PenaliteService {
      * <ol>
      *     <li>rechercher la pénalité,</li>
      *     <li>vérifier que le statut permet un paiement,</li>
-     *     <li>ignorer si elle est déjà payée (idempotence),</li>
+     *     <li>ignorer si elle est déjà payée </li>
      *     <li>marquer comme payée aujourd’hui,</li>
      *     <li>sauvegarder et retourner.</li>
      * </ol>
@@ -70,7 +70,7 @@ public class DefaultPenaliteService implements PenaliteService {
                     "Impossible de régler une pénalité annulée (ID: " + penaliteId + ").");
         }
 
-        // Idempotence : ne rien faire si elle est déjà payée
+        // ne rien faire si elle est déjà payée
         if (penalite.estPayee()) {
             return penalite;
         }
@@ -107,8 +107,7 @@ public class DefaultPenaliteService implements PenaliteService {
      * Workflow "demander paiement" (côté adhérent).
      *
      * <p>Cette méthode ne règle pas la pénalité : elle marque simplement
-     * un état "demande de paiement". Tu pourras enrichir cette logique
-     * plus tard (envoi email, trace d’historique, etc.).</p>
+     * un état "demande de paiement".</p>
      *
      * @param penaliteId id de la pénalité concernée
      */

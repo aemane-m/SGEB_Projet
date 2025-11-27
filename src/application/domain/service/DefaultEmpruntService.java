@@ -247,7 +247,6 @@ public class DefaultEmpruntService implements EmpruntService {
      */
     @Override
     public List<Emprunt> findActiveByAdherentId(long adherentId) {
-        // Si le dépôt ne fournit pas de méthode dédiée, on filtre en mémoire.
         return empruntRepository.findByAdherentId(adherentId).stream()
                 .filter(Emprunt::estEnCours)
                 .toList();

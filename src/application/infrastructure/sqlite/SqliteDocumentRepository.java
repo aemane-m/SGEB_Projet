@@ -15,7 +15,6 @@ import java.util.Optional;
 /**
  * Implémentation SQLite de {@link DocumentRepository} pour la table {@code DOCUMENT}.
  *
- * <h2>Mapping TPH (Table per Hierarchy)</h2>
  * <ul>
  *     <li>{@code dtype} : "Livre", "Magazine" ou "CD"</li>
  *     <li>Champs communs : {@code titre}, {@code annee_publication}, {@code editeur}, {@code genre}</li>
@@ -304,7 +303,7 @@ public class SqliteDocumentRepository implements DocumentRepository {
         }
 
         // Champs cover
-        ps.setString(i++, null); // cover_url (non utilisé pour l'instant)
+        ps.setString(i++, null); // cover_url
         ps.setString(i++, d.getCoverRef());
         ps.setString(i++, d.getCoverMime());
         ps.setString(i++, d.getCoverUpdatedAt() == null ? null : String.valueOf(d.getCoverUpdatedAt()));

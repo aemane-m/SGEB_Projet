@@ -62,7 +62,7 @@ public interface LoanPolicy {
      * <ul>
      *     <li>{@link Adherent#peutEmprunter(LocalDate)} pour l’état métier
      *         (retards, pénalités, plafond interne)</li>
-     *     <li>Une éventuelle politique d’accès (RBAC) basée sur
+     *     <li>Une éventuelle politique d’accès basée sur
      *         {@code Role}/{@code Capability}</li>
      * </ul>
      *
@@ -88,22 +88,6 @@ public interface LoanPolicy {
     /**
      * Calcule la <strong>date de retour prévue</strong> pour un nouvel emprunt.
      *
-     * <p>
-     * Par défaut, une implémentation simple peut se contenter de faire :
-     * </p>
-     *
-     * <pre>{@code
-     * return borrowDate.plusDays(loanDurationDays(document, adherent));
-     * }</pre>
-     *
-     * <p>
-     * mais une politique plus avancée peut adapter la durée en fonction :
-     * </p>
-     * <ul>
-     *     <li>du type de document (Livre, Magazine, CD…)</li>
-     *     <li>du profil de l’adhérent (adhérent classique, VIP, partenaire…)</li>
-     * </ul>
-     *
      * @param borrowDate date d’emprunt (non null)
      * @param document   document concerné (non null)
      * @param adherent   adhérent qui emprunte (non null)
@@ -115,13 +99,7 @@ public interface LoanPolicy {
      * Donne le <strong>nombre maximal d’emprunts simultanés</strong>
      * autorisés pour un adhérent donné.
      *
-     * <p>
-     * Une implémentation simple renverra systématiquement
      * {@link #DEFAULT_MAX_CONCURRENT_LOANS}.  
-     * Des politiques plus évoluées peuvent augmenter ou diminuer ce plafond
-     * selon le profil de l’adhérent.
-     * </p>
-     *
      * @param adherent adhérent concerné (non null)
      * @return plafond d’emprunts simultanés autorisés (&gt;= 0)
      */
@@ -131,16 +109,9 @@ public interface LoanPolicy {
      * Retourne la <strong>durée d’emprunt (en jours)</strong> applicable pour
      * un document donné et un adhérent donné.
      *
-     * <p>
      * Une implémentation de base peut renvoyer simplement
      * {@link #DEFAULT_LOAN_DURATION_DAYS}.  
-     * Une politique plus fine peut par exemple :
-     * </p>
-     * <ul>
-     *     <li>Accorder une durée plus courte pour des documents très demandés.</li>
-     *     <li>Accorder une durée plus longue à certains profils d’adhérents.</li>
-     * </ul>
-     *
+     * 
      * @param document document concerné (non null)
      * @param adherent adhérent emprunteur (non null)
      * @return durée en jours (&gt; 0)
@@ -153,15 +124,6 @@ public interface LoanPolicy {
 
     /**
      * Helper utilitaire pour vérifier qu’aucun argument n’est null.
-     *
-     * <p>
-     * Utilisable dans les implémentations de {@link LoanPolicy}
-     * pour éviter de répéter les mêmes blocs de vérification.
-     * </p>
-     *
-     * <pre>{@code
-     * LoanPolicy.requireNonNullAll(adherent, document, borrowDate);
-     * }</pre>
      *
      * @param values liste de valeurs à vérifier
      * @throws NullPointerException si au moins une valeur est null

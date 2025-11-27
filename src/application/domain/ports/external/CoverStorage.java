@@ -5,8 +5,7 @@ import java.util.Optional;
 
 /**
  * <p>
- * Port pour la gestion du stockage des images de couverture
- * (en local, sur un serveur distant, ou en cloud).
+ * Port pour la gestion du stockage des images de couverture en local.
  * </p>
  *
  * <p>

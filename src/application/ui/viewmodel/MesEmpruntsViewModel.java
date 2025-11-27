@@ -48,7 +48,7 @@ public final class MesEmpruntsViewModel {
 
     // ------------------ Constructeurs ------------------
 
-    /** Constructeur fallback (SceneBuilder / tests sans injection complète). */
+    /** Constructeur fallback (SceneBuilder). */
     public MesEmpruntsViewModel(EmpruntService empruntService) {
         this(empruntService, null, null);
     }

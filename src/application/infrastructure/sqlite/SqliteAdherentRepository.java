@@ -186,9 +186,6 @@ public class SqliteAdherentRepository implements AdherentRepository {
      * - isAdmin = 0
      * - actif   = 1
      * - password_hash = hash d'un mot de passe temporaire.
-     *
-     * (Dans une vraie appli, la création de compte serait plutôt centralisée
-     *  côté {@link application.domain.service.AccountService}.)
      */
     private Adherent insert(Adherent adherent) {
         final String sql = """
@@ -297,8 +294,6 @@ public class SqliteAdherentRepository implements AdherentRepository {
 
         String createdAt = rs.getString("created_at");
         a.setDateInscription(parseLocalDateSafely(createdAt));
-
-        // On ne charge pas les emprunts ici (évite le N+1 + dépendance EmpruntRepository).
         return a;
     }
 
@@ -323,7 +318,7 @@ public class SqliteAdherentRepository implements AdherentRepository {
 
     /**
      * Gestion standardisée des erreurs SQL.
-     * - si contrainte d'unicité sur l'email : message fonctionnel
+     * - Contrainte d'unicité sur l'email : message fonctionnel
      * - sinon : message technique plus générique
      */
     private void handleSqlException(SQLException e, String operation) {
@@ -365,7 +360,7 @@ public class SqliteAdherentRepository implements AdherentRepository {
     
 
     /**
-     * Hash ultra-simplifié utilisé uniquement pour ce TP.
+     * Hash ultra-simplifié utilisé uniquement pour ce projet.
      * À remplacer par BCrypt/Argon2 dans une vraie application.
      */
     private static String placeholderHash_DO_NOT_USE_IN_PRODUCTION(String clear) {

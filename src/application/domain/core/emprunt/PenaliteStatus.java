@@ -3,7 +3,7 @@ package application.domain.core.emprunt;
 /**
  * Représente le statut métier d’une {@link Penalite}.
  *
- * <p>Une pénalité suit un cycle de vie simple (DDD) piloté par les actions
+ * <p>Une pénalité suit un cycle de vie simple piloté par les actions
  * de l’utilisateur ou de l’administrateur :</p>
  *
  * <ul>
@@ -24,12 +24,7 @@ package application.domain.core.emprunt;
  *
  *     <li><strong>CANCELLED</strong> :
  *         un administrateur a annulé la pénalité.</li>
- *
- *     <li><strong>DEMANDE</strong> :
- *         statut supplémentaire disponible pour compatibilité ou scénarios futurs.
- *         Peut représenter une demande initiale client.
- *         <p><i>(Ce statut peut faire doublon avec PAYMENT_REQUESTED.)</i></p>
- *     </li>
+ *         
  * </ul>
  *
  * <h3>Remarque persistance</h3>

@@ -21,7 +21,6 @@ public final class AccessPolicy {
 
     /** Classe utilitaire : pas d'instanciation. */
     private AccessPolicy() {
-        // Utilitaire statique
     }
 
     // ======================================================================
@@ -109,10 +108,6 @@ public final class AccessPolicy {
         return isAllowed(role, Capability.BORROW_DOCUMENT);
     }
 
-    /** Peut retourner un document (côté autorisation) ? */
-    public static boolean canReturnDocument(Role role) {
-        return isAllowed(role, Capability.RETURN_DOCUMENT);
-    }
 
     /** Peut afficher le tableau de bord administrateur ? */
     public static boolean canViewAdminDashboard(Role role) {

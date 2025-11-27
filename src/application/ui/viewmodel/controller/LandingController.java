@@ -9,7 +9,6 @@ import javafx.scene.layout.BorderPane;
 /**
  * Contrôleur de l'écran d'accueil ("Landing").
  *
- * - Ne fait plus que déléguer la navigation au {@link Navigator}.
  * - Le choix de la vue (Login, Signup, etc.) et l'injection des services
  *   sont entièrement gérés par le Navigator (FxNavigator).
  */

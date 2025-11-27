@@ -10,7 +10,7 @@ package application.domain.core.personne;
  *
  * <ul>
  *     <li>{@link Adherent} (lecteur / utilisateur final)</li>
- *     <li>Employé (ex. futur Administrateur, Bibliothécaire)</li>
+ *     <li>Employé (ex. Administrateur, Bibliothécaire)</li>
  * </ul>
  *
  * <h3>Rôle dans l’architecture</h3>
@@ -152,7 +152,7 @@ public abstract class Personne {
     /**
      * Définit le nom de la personne.
      *
-     * @param nom nom non null et non vide
+     * @param nom NOM non null et non vide
      */
     public void setNom(String nom) {
         if (nom == null || nom.isBlank()) {

@@ -22,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * ViewModel du Dashboard.
- * Version Corrigée : Prend en compte le filtre de période pour les graphiques.
+ * Prend en compte le filtre de période pour les graphiques.
  */
 public final class DashboardViewModel {
 
@@ -131,8 +131,6 @@ public final class DashboardViewModel {
             List<Emprunt>  allEmprunts  = empruntRepository.findAll();
             List<Emprunt>  lateEmprunts = empruntRepository.findLateEmprunts(today);
 
-            // --- CORRECTION MAJEURE : Création du Dictionnaire des Documents ---
-            // Permet de retrouver le Genre même si l'objet Emprunt est incomplet
             Map<Long, Document> dictionnaireDocuments = new HashMap<>();
             for (Document d : allDocuments) {
                 if (d.getId() != null) {
@@ -161,10 +159,10 @@ public final class DashboardViewModel {
 
             // --- Calculs Graphiques (Avec la liste FILTRÉE) ---
             
-            // CORRECTION : Calcul manquant ajouté ici
+            // Calcul manquant ajouté ici
             var graphEmpruntsMois = computeLoansByMonth(empruntsFiltres); 
             
-            // CORRECTION : Utilisation de la méthode avec le dictionnaire
+            // Utilisation de la méthode avec le dictionnaire
             var graphTopGenres    = computeTopGenresEmpruntes(empruntsFiltres, dictionnaireDocuments); 
             
             var listeActiveUsers  = computeActiveBorrowers(empruntsFiltres);
@@ -235,7 +233,7 @@ public final class DashboardViewModel {
             }
         }
         
-        // ... Tri et conversion en XYChart.Data (code identique à avant) ...
+        // Tri et conversion en XYChart.Data
         List<Map.Entry<String, Integer>> listeTriee = new ArrayList<>(compteur.entrySet());
         listeTriee.sort((a, b) -> b.getValue().compareTo(a.getValue()));
 
@@ -287,13 +285,12 @@ public final class DashboardViewModel {
             data.add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
         }
         
-        // Petit tri chronologique simple (optionnel si LinkedHashMap ne suffit pas)
         data.sort(Comparator.comparing(d -> d.getXValue())); 
         
         return data;
     }
 
-    // Pie Chart : Stock global (On garde allDocuments)
+    // Pie Chart : Stock global
     private List<PieChart.Data> computeDocsByGenreStock(List<Document> documents) {
         Map<String, Integer> countByGenre = new HashMap<>();
         for (Document d : documents) {
@@ -321,7 +318,6 @@ public final class DashboardViewModel {
     }
 
     private List<RecentLoan> computeRecentLoans(List<Emprunt> emprunts) {
-        // Copie pour trier sans toucher à l'original
         List<Emprunt> copy = new ArrayList<>(emprunts);
         // Tri : date décroissante (plus récent en premier)
         copy.sort((e1, e2) -> e2.getDateEmprunt().compareTo(e1.getDateEmprunt()));
@@ -360,7 +356,7 @@ public final class DashboardViewModel {
     }
 
     // =========================================================
-    // Calculs KPIs Avancés (Utilisant des boucles simples)
+    // Calculs KPIs Avancés
     // =========================================================
 
     private double computeTauxUtilisationFonds(List<Document> allDocs, List<Emprunt> empruntsFiltres) {

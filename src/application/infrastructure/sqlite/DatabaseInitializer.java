@@ -16,8 +16,6 @@ import java.sql.Statement;
  *             <li>{@code password_must_change} INTEGER NOT NULL DEFAULT 0</li>
  *         </ul>
  *     </li>
- *     <li>Table {@code PENALITE} contenant notamment {@code date_fin},
- *         compatible avec le repository qui utilise cette colonne.</li>
  * </ul>
  */
 public final class DatabaseInitializer {
@@ -45,7 +43,7 @@ public final class DatabaseInitializer {
                 st.execute("PRAGMA foreign_keys = ON;");
 
                 // =========================================================
-                // ================ TABLE PERSONNE (corrigée) ===============
+                // ================ TABLE PERSONNE =========================
                 // =========================================================
                 st.execute("""
                     CREATE TABLE IF NOT EXISTS PERSONNE (
@@ -77,7 +75,7 @@ public final class DatabaseInitializer {
                     """);
 
                 // =========================================================
-                // ================= TABLE DOCUMENT (inchangée) ============
+                // ================= TABLE DOCUMENT ========================
                 // =========================================================
                 st.execute("""
                     CREATE TABLE IF NOT EXISTS DOCUMENT (
@@ -108,7 +106,7 @@ public final class DatabaseInitializer {
                     """);
 
                 // =========================================================
-                // ================== TABLE EMPRUNT =========================
+                // ================== TABLE EMPRUNT ========================
                 // =========================================================
                 st.execute("""
                     CREATE TABLE IF NOT EXISTS EMPRUNT (
@@ -136,7 +134,7 @@ public final class DatabaseInitializer {
                     """);
 
                 // =========================================================
-                // ================== TABLE PENALITE ========================
+                // ================== TABLE PENALITE =======================
                 // =========================================================
                 st.execute("""
                     CREATE TABLE IF NOT EXISTS PENALITE (
@@ -169,7 +167,7 @@ public final class DatabaseInitializer {
                         ON PENALITE(status);
                     """);
 
-                // Si tout va bien : commit
+                // Si tout va bien 
                 c.commit();
 
             } catch (SQLException ddlError) {

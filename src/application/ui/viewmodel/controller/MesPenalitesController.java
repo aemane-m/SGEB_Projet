@@ -106,7 +106,6 @@ public final class MesPenalitesController {
      * Constructeur par défaut requis par JavaFX.
      */
     public MesPenalitesController() {
-        // Le ViewModel sera injecté par le FxNavigator ou via setViewModel(...)
     }
 
     /**
@@ -425,7 +424,7 @@ public final class MesPenalitesController {
     }
 
     /**
-     * Applique un style "action principale" (bouton bleu, par exemple).
+     * Applique un style "action principale".
      */
     private void styleAsPrimary(DialogPane pane, ButtonType type) {
         Node node = pane.lookupButton(type);
@@ -436,7 +435,7 @@ public final class MesPenalitesController {
     }
 
     /**
-     * Applique un style "danger" ou "annulation" (bouton secondaire).
+     * Applique un style "danger" ou "annulation".
      */
     private void styleAsDanger(DialogPane pane, ButtonType type) {
         Node node = pane.lookupButton(type);

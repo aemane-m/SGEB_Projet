@@ -198,7 +198,7 @@ public class OpenLibraryProvider implements BookInfoProvider {
             try {
                 return Integer.parseInt(matcher.group(1));
             } catch (NumberFormatException ignored) {
-                // On ignore et renvoie null plus bas
+                // On ignore et renvoie null
             }
         }
         return null;

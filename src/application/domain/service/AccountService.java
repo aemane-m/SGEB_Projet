@@ -101,7 +101,7 @@ public interface AccountService {
      * Change le mot de passe d’un utilisateur et remet le flag
      * {@code passwordMustChange} à {@code false}.
      *
-     * <p>Typiquement appelée après un premier login avec un mot de passe temporaire.</p>
+     * <p>Appelée après un premier login avec un mot de passe temporaire.</p>
      *
      * @param userId      identifiant du compte
      * @param rawPassword nouveau mot de passe (en clair)
@@ -123,8 +123,6 @@ public interface AccountService {
     /**
      * Récupère le compte associé à un adhérent donné.
      *
-     * <p>Dans le modèle simplifié de SGEB, l’ID adhérent et l’ID personne
-     * peuvent être liés directement (implémentation côté infra).</p>
      *
      * @param adherentId identifiant de l’adhérent
      * @return un résumé de compte si trouvé, vide sinon
@@ -150,7 +148,7 @@ public interface AccountService {
             long userId,
             String email,
             String roleName,          // "ADMIN" / "ADHERENT"
-            String status,            // "ACTIVE" / "PENDING" / "SUSPENDED" ...
+            String status,            // "ACTIVE" / "SUSPENDED" ...
             boolean actif,            // true si le compte est activé
             boolean passwordMustChange,
             Long adherentId           // null pour un admin, non null pour un adhérent
@@ -166,7 +164,7 @@ public interface AccountService {
     /**
      * Modifie le statut d’un compte utilisateur (ex. ACTIVE → SUSPENDED).
      *
-     * <p>Règle métier typique : un utilisateur ne peut pas modifier
+     * <p>Règle métier : un utilisateur ne peut pas modifier
      * son <em>propre</em> statut.</p>
      *
      * @param targetUserId identifiant du compte à modifier
@@ -178,7 +176,7 @@ public interface AccountService {
     /**
      * Supprime un compte (admin ou adhérent).
      *
-     * <p>Règle métier typique : un utilisateur ne peut pas supprimer
+     * <p>Règle métier : un utilisateur ne peut pas supprimer
      * son <em>propre</em> compte.</p>
      *
      * @param targetUserId identifiant du compte à supprimer

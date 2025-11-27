@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.String?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Pagination?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Spinner?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.TitledPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane styleClass="dashboard-root" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.CatalogueController">
+
+    <!-- ========= HEADER ========= -->
+    <top>
+        <VBox spacing="12" styleClass="dashboard-header">
+            <padding>
+                <Insets bottom="12" left="48" right="48" top="20" />
+            </padding>
+
+            <!-- Titre -->
+            <HBox alignment="CENTER_LEFT" spacing="12">
+                <children>
+                    <Label styleClass="title" text="Catalogue" />
+                    <Region HBox.hgrow="ALWAYS" />
+                </children>
+            </HBox>
+
+            <!-- Recherche + boutons -->
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <children>
+                    <TextField fx:id="searchField" promptText="Rechercher (titre, auteur, ISBN…)" HBox.hgrow="ALWAYS" />
+
+                    <Region HBox.hgrow="ALWAYS" />
+
+                    <ProgressIndicator fx:id="progress" managed="false" prefHeight="18" prefWidth="18" visible="false" />
+
+                    <Button fx:id="btnSearch" styleClass="btn-primary" text="Rechercher" />
+                    <Button fx:id="btnRefresh" styleClass="btn-secondary" text="Actualiser" />
+                    <Button fx:id="btnClear" styleClass="btn-secondary" text="Effacer" />
+                    <Button fx:id="btnAdd" styleClass="btn-primary" text="Ajouter un document" />
+                </children>
+            </HBox>
+
+            <!-- ========= FILTRES AVANCÉS ========= -->
+            <TitledPane fx:id="filtersPane" animated="true" expanded="false" text="Filtres avancés">
+
+                <content>
+                    <GridPane hgap="12" vgap="10">
+                        <padding>
+                            <Insets bottom="0" left="0" right="0" top="0" />
+                        </padding>
+
+                        <columnConstraints>
+                            <ColumnConstraints percentWidth="25" />
+                            <ColumnConstraints percentWidth="75" />
+                        </columnConstraints>
+
+                        <!-- Type -->
+                        <Label text="Type" GridPane.columnIndex="0" GridPane.rowIndex="0" />
+                        <ComboBox fx:id="cbType" maxWidth="Infinity" promptText="Tous" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+
+                        <!-- Genre -->
+                        <Label text="Genre" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+                        <TextField fx:id="tfGenre" maxWidth="Infinity" promptText="Ex. Roman, Essai, Jazz…" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+                        <!-- Éditeur -->
+                        <Label text="Éditeur" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+                        <TextField fx:id="tfEditeur" maxWidth="Infinity" promptText="Ex. Gallimard, Sony…" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+                        <!-- Année min/max -->
+                        <Label text="Année (min/max)" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+                        <HBox alignment="CENTER_LEFT" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="3">
+                            <children>
+                                <Spinner fx:id="spAnneeMin" prefWidth="120" />
+                                <Label text="—" />
+                                <Spinner fx:id="spAnneeMax" prefWidth="120" />
+                            </children>
+                        </HBox>
+
+                        <!-- Disponibilité -->
+                        <Label text="Disponibilité" GridPane.columnIndex="0" GridPane.rowIndex="4" />
+                        <CheckBox fx:id="chkDisponible" text="Uniquement les documents disponibles" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+
+                        <!-- Boutons -->
+                        <HBox alignment="CENTER_RIGHT" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="5">
+                            <children>
+                                <Button fx:id="btnApplyFilters" styleClass="btn btn-primary" text="Appliquer les filtres" />
+                                <Button fx:id="btnResetFilters" styleClass="btn btn-secondary" text="Réinitialiser" />
+                            </children>
+                        </HBox>
+
+                        <rowConstraints>
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                            <RowConstraints />
+                        </rowConstraints>
+
+                    </GridPane>
+                </content>
+            <styleClass>
+               <String fx:value="titled-pane" />
+               <String fx:value="card-like" />
+               <String fx:value="collapsible" />
+            </styleClass>
+            </TitledPane>
+
+        </VBox>
+    </top>
+
+    <!-- ========= CONTENU PRINCIPAL ========= -->
+    <center>
+        <ScrollPane fx:id="rootScroll" fitToWidth="true" hbarPolicy="NEVER" styleClass="dashboard-scroll" vbarPolicy="AS_NEEDED">
+
+            <Pagination fx:id="pagination" maxPageIndicatorCount="7" pageCount="1000" prefWidth="725" styleClass="pager-rounded" />
+
+        </ScrollPane>
+    </center>
+
+    <!-- ========= FOOTER ========= -->
+    <bottom>
+        <HBox alignment="CENTER_LEFT" styleClass="dashboard-footer">
+            <padding>
+                <Insets bottom="20" left="48" right="48" top="10" />
+            </padding>
+
+            <children>
+                <Label fx:id="errorLabel" managed="false" styleClass="error-message" visible="false" />
+            </children>
+        </HBox>
+    </bottom>
+
+</BorderPane>

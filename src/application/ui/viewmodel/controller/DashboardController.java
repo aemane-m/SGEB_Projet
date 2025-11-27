@@ -44,7 +44,6 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Contrôleur du Dashboard.
- * Version Corrigée pour prendre en compte le filtre de période.
  */
 public final class DashboardController {
 
@@ -134,7 +133,7 @@ public final class DashboardController {
 
     @FXML
     private void initialize() {
-        setupPeriodFilters(); // Correction ici pour utiliser les filtres
+        setupPeriodFilters();
         setupKpiBindings();
         setupChartBindings();
         setupTableBindings();
@@ -151,7 +150,7 @@ public final class DashboardController {
     }
 
     // ---------------------------------------------------------------------
-    // Filtres de période (CORRIGÉ)
+    // Filtres de période
     // ---------------------------------------------------------------------
 
     private void setupPeriodFilters() {
@@ -251,7 +250,7 @@ public final class DashboardController {
             chartLoans.getData().setAll(List.of(viewModel.loansByMonthSeries()));
         }
 
-        // Répartition par genre - Top 10 Empruntés (CORRIGÉ AXE Y)
+        // Répartition par genre - Top 10 Empruntés
         if (chartGenresBar != null) {
             chartGenresBar.getData().clear();
 
@@ -278,10 +277,8 @@ public final class DashboardController {
                     return Double.valueOf(string);
                 }
             });
-            
-            // Optionnel : Forcer le pas minimum à 1 pour éviter trop de graduations si peu de données
-            // Mais attention, si autoRanging est true, tickUnit est souvent ignoré ou recalculé.
-            // Le formatter ci-dessus est la solution la plus robuste.
+          
+        
         }
 
         // Documents par type (Stock global)
@@ -302,7 +299,7 @@ public final class DashboardController {
         colAdherentEmprunts.setCellValueFactory(c -> new SimpleIntegerProperty(c.getValue().loanCount()));
         tableAdherentsActifs.setItems(viewModel.getActiveBorrowers());
 
-        // Retards (Global - État actuel)
+        // Retards (Filtré)
         colOverdueTitle.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().title()));
         colOverdueBorrower.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().borrower()));
         colOverdueDays.setCellValueFactory(c -> new SimpleIntegerProperty(c.getValue().daysOverdue()));

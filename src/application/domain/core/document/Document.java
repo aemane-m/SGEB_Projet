@@ -74,8 +74,7 @@ public abstract class Document {
     // ======================================================================
 
     /**
-     * Constructeur par défaut nécessaire pour certains frameworks
-     * (ex : instanciation via réflexion).
+     * Constructeur par défaut requis pour la création
      */
     public Document() {}
 

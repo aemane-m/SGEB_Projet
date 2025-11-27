@@ -90,17 +90,6 @@ public final class StandardLoanPolicy implements LoanPolicy {
      *     <li>Refus si {@code activeLoansCount} atteint {@code maxConcurrent}.</li>
      *     <li>Sinon, la politique ne s’oppose pas à l’emprunt.</li>
      * </ul>
-     *
-     * <p>
-     * Attention : cette méthode ne remplace pas les validations métier de
-     * {@link Adherent#peutEmprunter(LocalDate)}. Elle les complète.  
-     * Le service d’emprunt typique vérifiera :
-     * </p>
-     *
-     * <pre>{@code
-     * if (!adherent.peutEmprunter(asOf)) return false;
-     * if (!loanPolicy.canBorrow(adherent, doc, asOf, activeLoans, hasOverdue)) return false;
-     * }</pre>
      */
     @Override
     public boolean canBorrow(Adherent adherent,
@@ -117,10 +106,6 @@ public final class StandardLoanPolicy implements LoanPolicy {
         if (activeLoansCount >= maxConcurrent) {
             return false;
         }
-
-        // Extension future :
-        // - Bloquer certains types de documents
-        // - Adapter selon des "tiers" d'adhérents (étudiants, enseignants, VIP, etc.)
         return true;
     }
 
@@ -141,13 +126,10 @@ public final class StandardLoanPolicy implements LoanPolicy {
      * <p>
      * Implémentation simple : retourne le plafond global
      * {@link #maxConcurrent}.  
-     * Une version plus avancée pourrait adapter ce plafond
-     * en fonction du profil de l’adhérent.
      * </p>
      */
     @Override
     public int maxConcurrentLoans(Adherent adherent) {
-        // Extension future : adapter au rôle, ancienneté, historique, etc.
         return maxConcurrent;
     }
 
@@ -155,9 +137,7 @@ public final class StandardLoanPolicy implements LoanPolicy {
      * Durée d'emprunt en jours pour ce document et cet adhérent.
      *
      * <p>
-     * Implémentation standard : durée fixe {@link #durationDays}.  
-     * Extension possible : durée différente pour certains types de documents
-     * (nouveautés, réservés, supports spéciaux…).
+     * Implémentation standard : durée fixe {@link #durationDays}. 
      * </p>
      */
     @Override

@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
- * ViewModel pour la vue de gestion des pénalités (Maître-Détail).
+ * ViewModel pour la vue de gestion des pénalités.
  *
  * - Table maître : un résumé par adhérent (nombre de pénalités, total dû,
  *   nombre de pénalités avec demande de paiement).
@@ -152,7 +152,7 @@ public final class PenalitesViewModel {
                                 requested
                         );
                     })
-                    // Exemple : trier par total dû décroissant
+                    // Trier par total dû décroissant
                     .sorted((a, b) -> b.total().amount().compareTo(a.total().amount()))
                     .toList();
 

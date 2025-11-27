@@ -179,8 +179,6 @@ public class DefaultCatalogueService implements CatalogueService {
                     "Suppression impossible : le document (ID: " + id + ") est actuellement emprunté."
             );
         }
-
-        // Ici on pourrait aussi supprimer le fichier de couverture si nécessaire.
         documentRepository.delete(id);
     }
 
@@ -292,14 +290,14 @@ public class DefaultCatalogueService implements CatalogueService {
     // =========================================================
 
     /**
-     * Variante pratique : création sans couverture distante.
+     * Création sans couverture distante.
      */
     public Document create(Document doc) {
         return create(doc, null);
     }
 
     /**
-     * Variante pratique : mise à jour sans couverture distante.
+     *  Mise à jour sans couverture distante.
      */
     public Document update(Document doc) {
         return update(doc, null);

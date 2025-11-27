@@ -21,7 +21,7 @@ import application.domain.core.emprunt.Money;
  * </pre>
  *
  * <p>
- * Par défaut, le SGEB utilise 0,50 € / jour (voir factory {@link #sgebDefault()}).
+ * Par défaut, le SGEB utilise 0,50 € / jour).
  * </p>
  */
 public final class FixedRatePenalty implements PenaltyCalculator {
@@ -107,8 +107,8 @@ public final class FixedRatePenalty implements PenaltyCalculator {
     }
 
     /**
-     * Variante : factory utilisant une instance Money fournie par une "money factory"
-     * externe (si jamais tu utilises le pattern "MoneyFactory" dans une implémentation future).
+     * Variante : factory utilisant une instance Money fournie 
+     * par une "money factory" externe
      *
      * @param money montant par jour
      * @return nouveau calculateur à taux fixe

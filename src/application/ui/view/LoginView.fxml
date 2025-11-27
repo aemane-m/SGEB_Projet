@@ -33,7 +33,6 @@
                     <children>
                         <ProgressIndicator fx:id="progress" managed="false" prefHeight="18" prefWidth="18" visible="false" />
                         <Region prefHeight="37.0" prefWidth="229.0" HBox.hgrow="ALWAYS" />
-                        <!-- classes CSS séparées par un espace, pas une virgule -->
                         <Button fx:id="btnLogin" maxWidth="Infinity" prefHeight="37.0" prefWidth="0.0" styleClass="btn-primary" text="Se connecter" HBox.hgrow="ALWAYS" />
                     </children>
                 </HBox>
@@ -44,7 +43,6 @@
 
                 <Hyperlink fx:id="lnkForgotPassword" onAction="#onForgotPasswordClicked" styleClass="btn-link" text="Mot de passe oublié ?" />
 
-                <!-- 🔙 Bouton retour Landing -->
                 <Button fx:id="btnBackToLanding" maxWidth="Infinity" onAction="#onBackToLandingClicked" styleClass="btn-link" text="Retour à l’écran d’accueil" />
 
             </children>

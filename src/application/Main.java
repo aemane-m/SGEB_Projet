@@ -270,7 +270,7 @@ public class Main extends Application {
                 Method m = controller.getClass().getMethod("setAccountService", AccountService.class);
                 m.invoke(controller, this.accountService);
             } catch (NoSuchMethodException e) {
-                // Le contrôleur ne déclare pas setAccountService : pas grave.
+                // Le contrôleur ne déclare pas setAccountService
             } catch (Exception e) {
                 throw new RuntimeException("Injection AccountService impossible dans "
                         + controller.getClass().getName() + " : " + e.getMessage(), e);
@@ -283,20 +283,20 @@ public class Main extends Application {
                 Method m = controller.getClass().getMethod("setNavigator", Navigator.class);
                 m.invoke(controller, this.navigator);
             } catch (NoSuchMethodException e) {
-                // Le contrôleur ne déclare pas setNavigator : pas grave.
+                // Le contrôleur ne déclare pas setNavigator
             } catch (Exception e) {
                 throw new RuntimeException("Injection Navigator impossible dans "
                         + controller.getClass().getName() + " : " + e.getMessage(), e);
             }
         }
 
-        // Injection du DemoDataSeeder (typiquement dans SetupWizardController)
+        // Injection du DemoDataSeeder (Dans SetupWizardController)
         if (this.demoDataSeeder != null) {
             try {
                 Method m = controller.getClass().getMethod("setDemoDataSeeder", DemoDataSeeder.class);
                 m.invoke(controller, this.demoDataSeeder);
             } catch (NoSuchMethodException e) {
-                // Le contrôleur ne déclare pas setDemoDataSeeder : normal pour la plupart.
+                // Le contrôleur ne déclare pas setDemoDataSeeder
             } catch (Exception e) {
                 throw new RuntimeException("Injection DemoDataSeeder impossible dans "
                         + controller.getClass().getName() + " : " + e.getMessage(), e);
@@ -349,7 +349,6 @@ public class Main extends Application {
     /**
      * Crée une implémentation simple de {@link DashboardService} en se basant
      * directement sur les repositories passés en paramètre.
-     * <p>
      * Cette implémentation est utilisée pour alimenter le tableau de bord
      * (nombre de documents, d'adhérents, emprunts en cours, pénalités, etc.).
      *

@@ -26,10 +26,6 @@ import java.util.*;
  *      status      TEXT NOT NULL DEFAULT 'DUE'
  *   )
  *
- * Rappels :
- * - le statut métier (DUE / PAID / CANCELLED / PAYMENT_REQUESTED / DEMANDE)
- *   est stocké dans la colonne "status".
- * - la date_fin marque la date de paiement (si payé).
  */
 public class SqlitePenaliteRepository implements PenaliteRepository {
 
@@ -105,7 +101,7 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
     @Override
     public void delete(Long id) {
         if (id == null || id <= 0) {
-            return; // Rien à faire
+            return; 
         }
 
         final String sql = "DELETE FROM PENALITE WHERE penalite_id = ?";
@@ -282,7 +278,7 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
             ps.setString(1, datePaiement.toString());
             ps.setLong(2, adherentId);
 
-            return ps.executeUpdate(); // nombre de lignes mises à jour
+            return ps.executeUpdate(); 
 
         } catch (SQLException e) {
             throw new RuntimeException("PENALITE.reglerToutesPourAdherent a échoué", e);
@@ -374,7 +370,7 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
         ps.setLong(i++, penalite.getAdherentId());
         ps.setLong(i++, penalite.getEmpruntId());
 
-        // Type (ici un seul type : RETARD, mais extensible)
+        // Type
         ps.setString(i++, DEFAULT_TYPE);
 
         // Montant
@@ -397,7 +393,7 @@ public class SqlitePenaliteRepository implements PenaliteRepository {
             ps.setNull(i++, Types.VARCHAR);
         }
 
-        // description (non utilisée pour l’instant)
+        // description 
         ps.setString(i++, null);
 
         // status (DUE / PAYMENT_REQUESTED / PAID / CANCELLED / DEMANDE)

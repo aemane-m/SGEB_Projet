@@ -42,7 +42,7 @@ public interface EmpruntRepository extends Repository<Emprunt, Long> {
      * Retourne les emprunts en cours (non retournés) dont la date de
      * retour prévue est antérieure à {@code dateLimite}.
      *
-     * @param dateLimite date de référence (souvent {@code LocalDate.now()})
+     * @param dateLimite date de référence
      * @return liste des emprunts en retard
      */
     List<Emprunt> findLateEmprunts(LocalDate dateLimite);

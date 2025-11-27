@@ -41,7 +41,7 @@ public class DemoDataSeeder {
         // 2. Connexion et Exécution
         try (Connection connection = SqliteDataSource.getConnection()) {
             
-            // Démarrage de la transaction (Mode manuel)
+            // Démarrage de la transaction
             connection.setAutoCommit(false);
 
             try (Statement statement = connection.createStatement()) {
@@ -80,7 +80,7 @@ public class DemoDataSeeder {
      * Lit le contenu du fichier .sql situé dans le même dossier (package) que cette classe.
      */
     private String lireFichierSql(String nomFichier) {
-        // On cherche le fichier dans le "Classpath" (les ressources compilées)
+        // On cherche le fichier dans le "Classpath"
         try (InputStream flux = getClass().getResourceAsStream(nomFichier)) {
             
             if (flux == null) {

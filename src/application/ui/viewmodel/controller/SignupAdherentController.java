@@ -25,12 +25,6 @@ import java.util.function.Consumer;
  *     <li>Déléguer la création du compte au {@link AccountService}.</li>
  *     <li>Déléguer la navigation au {@link Navigator} (retour Landing, aller à Login, etc.).</li>
  * </ul>
- *
- * <p>Important : ce contrôleur ne charge plus lui-même les FXML d’autres écrans.
- * Toutes les transitions sont désormais gérées par le {@link Navigator}, ce qui
- * corrige notamment l’erreur
- * <code>The method setAccountService(AccountService) is undefined for the type LandingController</code>
- * (plus aucun appel direct à LandingController).</p>
  */
 public class SignupAdherentController {
 
@@ -208,9 +202,6 @@ public class SignupAdherentController {
         final String pass   = passwordField.getText();
         final String prenom = trim(prenomField.getText());
         final String nom    = trim(nomField.getText());
-
-        // ⚠ IMPORTANT : ordre des paramètres dans AccountService :
-        // createAdherentPublic(String email, String rawPassword, String nom, String prenom)
         runSafely(
                 () -> accountService.createAdherentPublic(email, pass, nom, prenom),
                 ex -> showError(msg(ex)),

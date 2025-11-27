@@ -226,7 +226,7 @@ public class LoginController {
         if (navigator != null) {
             navigator.logout();
         } else {
-            // Fallback : message d'erreur (cas théorique)
+            // Fallback : message d'erreur
             showError("Navigation indisponible (navigator non injecté).");
         }
     }

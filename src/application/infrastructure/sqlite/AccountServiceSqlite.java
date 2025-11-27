@@ -3,7 +3,6 @@ package application.infrastructure.sqlite;
 import application.domain.core.security.Capability;
 import application.domain.core.security.Role;
 import application.domain.service.AccountService;
-import application.ui.navigation.Navigator;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -51,24 +50,14 @@ public final class AccountServiceSqlite implements AccountService {
     public AccountServiceSqlite() {
         // rien de spécial ici
     }
-
-    /**
-     * Ancien constructeur prenant un Navigator (UI).
-     * Conservé uniquement pour compatibilité avec le code existant.
-     * L'infrastructure NE devrait pas dépendre de la couche UI.
-     */
-    @Deprecated
-    public AccountServiceSqlite(Navigator navigator) {
-        this();
-    }
-
+    
     // ============================
     // ===== Helpers sécurité =====
     // ============================
 
     /**
-     * Hash très simplifié pour le TP.
-     * ⚠ À NE PAS UTILISER EN PRODUCTION.
+     * Hash très simplifié pour le projet.
+     * À NE PAS UTILISER EN PRODUCTION.
      */
     private static String placeholderHash_DO_NOT_USE_IN_PRODUCTION(String clear) {
         return Integer.toHexString(clear == null ? 0 : clear.hashCode());
@@ -76,7 +65,7 @@ public final class AccountServiceSqlite implements AccountService {
 
     /**
      * Vérification du mot de passe pour le TP.
-     * ⚠ À NE PAS UTILISER EN PRODUCTION.
+     * À NE PAS UTILISER EN PRODUCTION.
      */
     private static boolean placeholderCheck_DO_NOT_USE_IN_PRODUCTION(String clear, String dbHash) {
         return dbHash != null && dbHash.equals(placeholderHash_DO_NOT_USE_IN_PRODUCTION(clear));
@@ -221,7 +210,7 @@ public final class AccountServiceSqlite implements AccountService {
                                        boolean passwordMustChange,
                                        boolean actif) {
 
-        // === Validation basique ===
+        // Validation basique
         Objects.requireNonNull(email, "email");
         Objects.requireNonNull(nom, "nom");
         Objects.requireNonNull(prenom, "prenom");
@@ -314,7 +303,7 @@ public final class AccountServiceSqlite implements AccountService {
 
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
-                    // "Dummy check" pour ne pas révéler si l'email existe ou non
+                    // Check pour ne pas révéler si l'email existe ou non
                     placeholderCheck_DO_NOT_USE_IN_PRODUCTION(rawPassword, "dummy_hash");
                     return LoginResult.failure("Email ou mot de passe invalide.");
                 }
@@ -423,7 +412,7 @@ public final class AccountServiceSqlite implements AccountService {
      * Recherche un utilisateur par email dans le but d'un changement de mot de passe
      * déclenché via la fonctionnalité "mot de passe oublié".
      *
-     * <p>⚠️ Cette méthode NE vérifie PAS le mot de passe. Elle est donc destinée
+     * <p> Cette méthode NE vérifie PAS le mot de passe. Elle est destinée
      * exclusivement à un flux contrôlé côté UI, utilisé dans le cadre d'une
      * démonstration. En production, il faudrait :
      * <ul>

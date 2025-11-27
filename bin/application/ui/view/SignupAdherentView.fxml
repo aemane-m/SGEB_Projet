@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.String?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox alignment="CENTER" maxWidth="420" prefWidth="420" spacing="12" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.SignupAdherentController">
+
+    <padding>
+        <Insets bottom="20" left="20" right="20" top="20" />
+    </padding>
+
+    <!-- ====== TITRE ====== -->
+    <Label styleClass="title" text="Création d'un compte adhérent" />
+
+    <Label text="Remplissez ce formulaire pour créer votre compte." wrapText="true" />
+
+    <!-- ====== FORMULAIRE ====== -->
+    <TextField fx:id="nomField" maxWidth="Infinity" promptText="Nom" />
+
+    <TextField fx:id="prenomField" maxWidth="Infinity" promptText="Prénom" />
+
+    <TextField fx:id="emailField" maxWidth="Infinity" promptText="Email" />
+
+    <PasswordField fx:id="passwordField" maxWidth="Infinity" promptText="Mot de passe (min. 6 caractères)" />
+
+    <PasswordField fx:id="confirmPasswordField" maxWidth="Infinity" promptText="Confirmer le mot de passe" />
+
+    <!-- ====== MESSAGES ====== -->
+    <Label fx:id="errorLabel" managed="false" styleClass="error-message" visible="false" wrapText="true" />
+
+    <Label fx:id="infoLabel" managed="false" styleClass="success-message" visible="false" wrapText="true" />
+
+    <!-- ====== ACTIONS ====== -->
+    <HBox alignment="CENTER_RIGHT" spacing="10">
+        <children>
+
+            <Button fx:id="btnBack" onAction="#onBackToLandingClicked" styleClass="btn-danger" text="Retour à l'accueil" />
+
+            <Region HBox.hgrow="ALWAYS" />
+
+            <Button fx:id="btnCreate" defaultButton="true" onAction="#onCreateClicked" text="Créer mon compte">
+                <styleClass>
+                    <String fx:value="btn" />
+                    <String fx:value="btn-primary" />
+                </styleClass>
+            </Button>
+
+        </children>
+    </HBox>
+
+</VBox>
