@@ -10,7 +10,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox prefHeight="553" prefWidth="668" spacing="8" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.MesPenalitesController">
+<VBox prefHeight="553" prefWidth="885.0" spacing="8" stylesheets="@../css/style.css" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="application.ui.viewmodel.controller.MesPenalitesController">
 
     <padding>
         <Insets bottom="10" left="10" right="10" top="10" />
@@ -33,15 +33,15 @@
     <!-- ====== TABLE DES PÉNALITÉS ====== -->
     <TableView fx:id="table" VBox.vgrow="ALWAYS">
         <columns>
-            <TableColumn fx:id="colDoc" prefWidth="171.0" resizable="false" text="Document" />
+            <TableColumn fx:id="colDoc" prefWidth="220.0" resizable="false" text="Document" />
 
-            <TableColumn fx:id="colDate" prefWidth="93.0" resizable="false" text="Date" />
+            <TableColumn fx:id="colDate" prefWidth="121.0" resizable="false" text="Date" />
 
-            <TableColumn fx:id="colMontant" prefWidth="109.0" resizable="false" text="Montant" />
+            <TableColumn fx:id="colMontant" prefWidth="103.0" resizable="false" text="Montant" />
 
-            <TableColumn fx:id="colStatut" prefWidth="88.0" resizable="false" text="Statut" />
+            <TableColumn fx:id="colStatut" prefWidth="185.0" resizable="false" text="Statut" />
 
-            <TableColumn fx:id="colAction" prefWidth="185.0" resizable="false" text="Action" />
+            <TableColumn fx:id="colAction" prefWidth="234.0" resizable="false" text="Action" />
         </columns>
 
         <columnResizePolicy>

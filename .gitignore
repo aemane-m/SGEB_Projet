@@ -1,0 +1,15 @@
+# Fichiers compilés (le dossier target complet)
+/target/
+
+# Fichiers de configuration Eclipse (optionnel mais recommandé de ne pas les partager)
+.settings/
+.classpath
+.project
+bin/
+
+# Fichiers Mac (si vous en avez)
+.DS_Store
+
+# Fichiers IntelliJ (si votre prof utilise un autre IDE)
+.idea/
+*.iml

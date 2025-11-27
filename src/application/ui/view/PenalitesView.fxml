@@ -40,7 +40,7 @@
 
             <Label styleClass="section-title" text="Adhérents avec pénalités actives" />
 
-            <TableView fx:id="tableAdherents" prefHeight="690.0" prefWidth="863.0" styleClass="data-table">
+            <TableView fx:id="tableAdherents" prefHeight="485.0" prefWidth="538.0" styleClass="data-table">
 
                 <columns>
                     <TableColumn fx:id="colAdherentNom" prefWidth="210.75186920166016" resizable="false" text="Adhérent" />

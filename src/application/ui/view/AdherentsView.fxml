@@ -42,7 +42,7 @@
     <!-- Barre de recherche + actions -->
     <HBox alignment="CENTER_LEFT" spacing="10">
         <children>
-            <TextField fx:id="searchField" promptText="Rechercher par ID, nom ou prénom" HBox.hgrow="ALWAYS" />
+            <TextField fx:id="searchField" promptText="Rechercher par ID, nom" HBox.hgrow="ALWAYS" />
 
             <Button fx:id="btnSearch" text="Rechercher">
                 <graphic>
