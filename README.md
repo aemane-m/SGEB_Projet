@@ -184,16 +184,28 @@ Recherche par titre, auteur, genre, ISBN.
 - JavaFX (géré automatiquement par Maven)
 
 ---
-
 ## Option A : Exécutable (recommandé)
 
-Placez les dossiers **data/** et **covers/** à côté du `.jar`.
+À la racine du projet se trouve un dossier **`Livrable/`**, contenant :
 
-Lancement :
+- le fichier **`SGEB_Projet-0.0.1-SNAPSHOT.jar`**  
+- le dossier **`data/`** (base SQLite)  
+- le dossier **`covers/`** (images et couvertures)
+
+Pour exécuter correctement l'application, assurez-vous que **les dossiers `data/` et `covers/` se trouvent bien à côté du fichier `.jar`**, c’est-à-dire dans le même répertoire `Livrable/`.
+
+### Lancement
+
+Depuis un terminal, positionnez-vous dans le dossier `Livrable/` puis lancez :
 
 ```bash
 java -jar SGEB_Projet-0.0.1-SNAPSHOT.jar
 ```
+L’application se lance immédiatement et charge automatiquement :
+
+- la base SQLite depuis **`data/sgeb.db`**
+- les couvertures de documents depuis **`covers/`**
+
 
 ## Option B : Compilation (développeur)
 
