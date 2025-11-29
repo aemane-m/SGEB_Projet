@@ -252,7 +252,7 @@ src/main/java/application
 # Auteur
 
 Développé par **Aemane MOUTEIROU &  Sara LOPEZ DE VARO**  
-Master MIAGE — Université Paris Dauphine / PSL
+Master MIAGE — Université Paris Dauphine / PSL.
 
 © 2025 SGEB Project — Tous droits réservés.
 
