@@ -1,4 +1,4 @@
-#SSGEB — Système de Gestion des Emprunts de Bibliothèque
+# SSGEB — Système de Gestion des Emprunts de Bibliothèque
 
 **SGEB** est une application de bureau complète dédiée à la gestion d'une bibliothèque.  
 Elle permet aux **administrateurs** de gérer le catalogue, les utilisateurs et les emprunts,  
