@@ -1,99 +1,259 @@
-📚 SGEB - Système de Gestion de Bibliothèque
+#SSGEB — Système de Gestion des Emprunts de Bibliothèque
 
-Application de bureau complète pour la gestion d'une bibliothèque, développée en Java (JavaFX) avec une architecture MVC.
+**SGEB** est une application de bureau complète dédiée à la gestion d'une bibliothèque.  
+Elle permet aux **administrateurs** de gérer le catalogue, les utilisateurs et les emprunts,  
+et offre aux **adhérents** un espace dédié pour consulter leurs prêts et leurs pénalités.
 
-🌟 Fonctionnalités
+Développé dans le cadre du **Master MIAGE (Université Paris Dauphine – PSL)**, ce projet illustre la mise en œuvre conjointe de **l’Architecture Hexagonale** et du **Domain-Driven Design (DDD)**.
 
-Gestion du catalogue : Ajout, modification, suppression et recherche de livres.
+---
 
-Gestion des adhérents : Inscription et suivi des utilisateurs.
+# Architecture Logicielle & Choix DDD
 
-Système d'emprunt : Enregistrement des prêts et retours.
+Le projet respecte strictement la **séparation des préoccupations (SoC)** grâce à une organisation en **trois couches concentriques**.
 
-Gestion des pénalités : Calcul automatique des retards et amendes.
+## Pourquoi un choix DDD ?
 
-Tableau de bord : Vue d'ensemble des statistiques de la bibliothèque.
+- **Indépendance totale du métier**  
+  Le domaine ne dépend ni de JavaFX ni de SQLite.  
+  Le calcul des pénalités ou la gestion des emprunts peuvent être testés sans interface graphique.
 
-Persistance des données : Sauvegarde locale via SQLite.
+- **Langage Ubiquitaire**  
+  Le code reprend les concepts métier réels : *Emprunt*, *Adhérent*, *Pénalité*, *Catalogue*…
 
-Export PDF : Génération de rapports (via PDFBox).
+- **Évolutivité**  
+  Une migration vers PostgreSQL ou une version Web n’impacte pas le domaine.
 
-🛠️ Technologies Utilisées
+---
 
-Langage : Java 21
+# Structure des Couches
 
-Interface Graphique : JavaFX (FXML & CSS)
+## 1. Le Domaine — `application.domain`
 
-Base de Données : SQLite (via JDBC)
+Le **cœur du système**, entièrement indépendant des technologies.
 
-Build Tool : Maven
+### Core  
+Entités riches (Emprunt, Adherent, Livre, CD…) et Value Objects (Money).
 
-Dépendances clés :
+### Policy  
+Règles métier telles que :
+- limite de 5 emprunts,
+- pénalité de 0,50€/jour,
+- durée de prêt de 21 jours.
 
-pdfbox (Génération PDF)
+### Ports  
+Interfaces définissant les contrats pour :
+- la persistance (*AdherentRepository, DocumentRepository…*),
+- les services externes (*BookInfoProvider, CoverStoragePort*).
 
-gson / json (Manipulation de données)
+### Services  
+Orchestration des cas d’usage avec :
+- *EmpruntService*
+- *CatalogueService*
+- *AccountService*
+- *PenaliteService*
 
-sqlite-jdbc
+---
 
-📋 Prérequis
+## 2.️ L’Infrastructure — `application.infrastructure`
 
-Java 21 (JDK 21) ou supérieur.
+Les **adaptateurs** concrets qui implémentent les ports du domaine.
 
-Maven (pour la compilation).
+### SQLite  
+Transformation des objets métier en requêtes SQL via :
+- *SqliteAdherentRepository*  
+- *SqliteDocumentRepository*  
+- *SqliteEmpruntRepository*  
+- *SqlitePenaliteRepository*
 
-🚀 Installation et Exécution
+### Services externes  
+- *OpenLibraryProvider* : récupération des métadonnées (ISBN).  
+- *LocalCoverStorageAdapter* : stockage des couvertures d’ouvrages.
 
-Option A : Depuis l'exécutable (Si fourni dans l'archive)
+---
 
-Si vous avez téléchargé ce projet sous forme d'archive (ZIP) contenant un dossier Livrable :
+## 3. Interface Utilisateur — `application.ui` (JavaFX + MVVM)
 
-Ouvrez le dossier Livrable.
+### View (FXML)  
+Définit l’apparence : boutons, tableaux, cartes, etc.
 
-Assurez-vous que les dossiers data et covers sont présents à côté du .jar.
+### ViewModel  
+Contient l’état observable et la logique de présentation.
 
-Double-cliquez sur SGEB_Projet-0.0.1-SNAPSHOT.jar.
+### Controller  
+Fait le lien entre la Vue et le ViewModel (action utilisateur → service).
 
-Option B : Compilation depuis les sources (GitHub)
+### Navigator  
+Service centralisé de navigation entre les écrans.
 
-Si vous avez cloné le dépôt Git, vous devez construire l'application :
+---
 
-Cloner le projet :
+# Fonctionnalités
 
-git clone [https://github.com/VOTRE_USERNAME/SGEB_Projet.git](https://github.com/VOTRE_USERNAME/SGEB_Projet.git)
-cd SGEB_Projet
+## Espace Administrateur
 
+### Tableau de bord  
+- KPIs (prêts en cours, retards, adhérents actifs)  
+- Graphiques statistiques  
+- Carrousel des derniers emprunts
 
-Compiler et générer le Fat JAR :
+### Export PDF  
+- Rapport d’activité  
+- Statistiques globales  
+- Historique des emprunts
 
-mvn clean package
+### Gestion du Catalogue  
+- CRUD complet (Livres, Magazines, CD)  
+- Import automatique par ISBN via **API OpenLibrary**  
+- Mise à jour des couvertures (API ou fichier local)
 
+### ‍Gestion des Adhérents  
+- Création et suspension de comptes  
+- Réinitialisation de mot de passe
 
-Lancer l'application :
-Une fois la compilation réussie, il est recommandé de copier le JAR généré vers un dossier propre (pour qu'il trouve la base de données) ou de le lancer ainsi :
+### Gestion des Flux  
+- Enregistrement d’emprunts et retours  
+- Calcul automatique des pénalités en retard
 
-Création du dossier de test :
+### Gestion des Pénalités  
+- Liste de toutes les pénalités actives  
+- Validation des demandes de paiement d’adhérents
 
-mkdir run_app
-cp target/SGEB_Projet-0.0.1-SNAPSHOT.jar run_app/
-cp -r data run_app/
-cp -r covers run_app/
-cd run_app
+---
+
+## Espace Adhérent
+
+### Catalogue  
+Recherche par titre, auteur, genre, ISBN.
+
+### Mes Emprunts  
+- Suivi en temps réel  
+- Historique complet  
+- Disponibilité des ouvrages
+
+### Mes Pénalités  
+- Visualisation immédiate  
+- Possibilité de demander une régularisation  
+  (transmise à l’administrateur pour validation)
+
+---
+
+# Limites & Améliorations Futures
+
+## Limites Actuelles
+
+- **Sécurité des mots de passe**  
+  Hachage simplifié (`hashCode()`).  
+  → À remplacer par BCrypt ou Argon2.
+
+- **Session utilisateur**  
+  Pas d'expiration automatique.
+
+- **Mono-poste**  
+  SQLite ne permet pas une utilisation sur plusieurs postes en simultané.
+
+## Améliorations Futures (Roadmap)
+
+- Envoi d’emails via un **NotificationPort** (JavaMail).  
+- Système de réservation des ouvrages.  
+- Intégration d’un lecteur code-barres USB.  
+- Export CSV / Excel.  
+- Passage à PostgreSQL pour un usage multi-utilisateurs.
+
+---
+
+# Stack Technique
+- **Langage** : Java 21  
+- **Interface** : JavaFX + CSS  
+- **BDD** : SQLite (`sgeb.db`)  
+- **Build** : Maven  
+
+### Dépendances clés
+- `sqlite-jdbc` — Connexion à SQLite  
+- `gson` — Parsing JSON (OpenLibrary)  
+- `pdfbox` — Export PDF  
+- `javafx-controls`, `javafx-fxml`
+
+---
+
+# Installation & Démarrage
+
+## Prérequis
+- JDK 21+
+- Maven 3+
+- JavaFX (géré automatiquement par Maven)
+
+---
+
+## Option A : Exécutable (recommandé)
+
+Placez les dossiers **data/** et **covers/** à côté du `.jar`.
+
+Lancement :
+
+```bash
 java -jar SGEB_Projet-0.0.1-SNAPSHOT.jar
+```
+
+## Option B : Compilation (développeur)
+
+```bash
+git clone https://github.com/aemane-m/SGEB_Projet.git
+cd SGEB_Projet
+mvn clean javafx:run
+```
+## Premier Lancement — Setup Wizard
+
+Au premier démarrage, l’application ouvre automatiquement le **Setup Wizard**.  
+Ce module guide l’utilisateur dans :
+
+- **la création du premier Administrateur**, indispensable pour initialiser le système ;
+- l’**import facultatif de données de démonstration** (catalogue minimal, adhérents fictifs), utile pour tester rapidement l’interface.
+
+---
+
+# Modèle de Données
+
+Le SGEB utilise SQLite comme base embarquée (`sgeb.db`).  
+Plusieurs choix structurants ont été adoptés pour garantir cohérence et simplicité.
+
+### Héritage TPH (Table Per Hierarchy)
+Toutes les sous-classes de `Document` (Livre, CD, Magazine) sont regroupées dans **une seule table** :
+
+- Table : `DOCUMENT`  
+- Colonne discriminante : **`dtype`**
+
+Cela évite la duplication de colonnes, simplifie les requêtes, et s’adapte parfaitement aux contraintes d’un projet académique.
+
+### Clés étrangères activées
+SQLite désactive les contraintes référentielles par défaut.  
+L’application force leur activation via : **`PRAGMA foreign_keys = ON`**
 
 
-📂 Structure du Projet
+---
+#Structure du Projet
+```bash
+src/main/java/application
+├── domain                  # Cœur métier (DDD)
+│   ├── core                # Entités : Livre, Emprunt, Adherent...
+│   ├── policy              # Règles de gestion
+│   ├── ports               # Interfaces (repositories & APIs)
+│   └── service             # Services applicatifs
+├── infrastructure          # Adaptateurs techniques
+│   ├── sqlite              # Implémentations Repository (SQLite)
+│   └── external            # API OpenLibrary & stockage images
+└── ui                      # Présentation (JavaFX / MVVM)
+    ├── view                # FXML
+    ├── viewmodel           # ViewModels (état)
+    ├── controller          # Contrôleurs JavaFX
+    └── navigation          # Gestion de navigation
+```
+---
+# Auteur
 
-SGEB_Projet/
-├── src/               # Code source (Java & FXML)
-├── data/              # Base de données SQLite (sgeb.db)
-├── covers/            # Images des couvertures de livres
-├── pom.xml            # Configuration Maven
-└── README.md          # Documentation
+Développé par **Aemane MOUTEIROU &  Sara LOPEZ DE VARO**  
+Master MIAGE — Université Paris Dauphine / PSL
+
+© 2025 SGEB Project — Tous droits réservés.
 
 
-👤 Auteur
-
-[Votre Nom] - Projet Étudiant
-
-Ce projet a été réalisé dans le cadre d'un cursus universitaire.
