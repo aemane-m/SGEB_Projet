@@ -231,7 +231,7 @@ L’application force leur activation via : **`PRAGMA foreign_keys = ON`**
 
 
 ---
-#Structure du Projet
+# Structure du Projet
 ```bash
 src/main/java/application
 ├── domain                  # Cœur métier (DDD)
